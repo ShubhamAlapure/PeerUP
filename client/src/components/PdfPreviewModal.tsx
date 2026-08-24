@@ -15,6 +15,7 @@ export const PdfPreviewModal: React.FC<PdfPreviewProps> = ({ fileName, fileUrl, 
   const [loadError, setLoadError] = useState(false);
 
   const isIpynb = fileName.toLowerCase().endsWith('.ipynb') || fileUrl.includes('.ipynb');
+  const isHtml = fileName.toLowerCase().endsWith('.html') || fileName.toLowerCase().endsWith('.htm') || fileUrl.includes('.html');
 
   const isImage = fileUrl.startsWith('data:image/') || 
                   /\.(png|jpg|jpeg|webp|gif|svg)(\?.*)?$/i.test(fileUrl) || 
@@ -36,19 +37,19 @@ export const PdfPreviewModal: React.FC<PdfPreviewProps> = ({ fileName, fileUrl, 
       }
     }
 
-    // 2. If base64 data URL PDF, convert to Blob URL
+    // 2. If base64 data URL PDF or HTML, convert to Blob URL
     if (isBase64 && !isImage && !isIpynb) {
       try {
         const parts = fileUrl.split(';base64,');
         if (parts.length === 2) {
-          const contentType = parts[0].replace('data:', '');
+          const contentType = isHtml ? 'text/html' : (parts[0].replace('data:', '') || 'application/pdf');
           const raw = window.atob(parts[1]);
           const rawLength = raw.length;
           const uInt8Array = new Uint8Array(rawLength);
           for (let i = 0; i < rawLength; ++i) {
             uInt8Array[i] = raw.charCodeAt(i);
           }
-          const blob = new Blob([uInt8Array], { type: contentType || 'application/pdf' });
+          const blob = new Blob([uInt8Array], { type: contentType });
           const blobUrl = URL.createObjectURL(blob);
           setPdfBlobUrl(blobUrl);
         }
@@ -56,7 +57,7 @@ export const PdfPreviewModal: React.FC<PdfPreviewProps> = ({ fileName, fileUrl, 
         console.warn('Base64 blob conversion notice:', e);
       }
     }
-  }, [fileUrl, isBase64, isImage, isIpynb]);
+  }, [fileUrl, isBase64, isImage, isIpynb, isHtml]);
 
   const activeRenderUrl = pdfBlobUrl || fileUrl;
 

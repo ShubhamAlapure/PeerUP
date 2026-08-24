@@ -392,16 +392,16 @@ export const CreateExplanationPage: React.FC = () => {
               <div className="relative border-2 border-dashed border-purple-300 rounded-2xl p-6 bg-[#f8f6ff] hover:bg-purple-100/50 transition-colors text-center cursor-pointer">
                 <input
                   type="file"
-                  accept=".ipynb,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.mp4,.zip,.rar"
+                  accept=".ipynb,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.mp4,.zip,.rar,.html,.htm"
                   onChange={handleFileUpload}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
                 <div className="flex flex-col items-center gap-2">
                   <UploadCloud className="w-8 h-8 text-[#6d28d9]" />
                   <span className="text-xs font-black text-[#2e1065]">
-                    {isUploading ? 'Uploading resource...' : 'Click or Drag & Drop File (.ipynb, .pdf, .docx, .xlsx)'}
+                    {isUploading ? 'Uploading resource...' : 'Click or Drag & Drop File (.ipynb, .pdf, .docx, .xlsx, .html)'}
                   </span>
-                  <span className="text-[10px] text-slate-500 font-medium">Supports Jupyter Notebooks (.ipynb), PDFs, Word Docs (.docx), Spreadsheets (.xlsx, .csv), Screenshots & Code files (Max 10MB limit)</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Supports Jupyter Notebooks (.ipynb), PDFs, Word Docs (.docx), Spreadsheets (.xlsx, .csv), HTML files, Screenshots & Code files (Max 10MB limit)</span>
                 </div>
               </div>
             )}
