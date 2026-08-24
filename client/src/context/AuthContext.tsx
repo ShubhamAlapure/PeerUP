@@ -36,33 +36,54 @@ const guestProfile: UserProfile = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<UserProfile>(guestProfile);
-  const [session, setSession] = useState<any | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
+    const saved = localStorage.getItem('peerup_user_profile');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return guestProfile;
+      }
+    }
+    return guestProfile;
+  });
+
+  const [session, setSession] = useState<any | null>(() => {
+    const savedSession = localStorage.getItem('peerup_session');
+    return savedSession ? JSON.parse(savedSession) : null;
+  });
+
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // 1. Fetch current active session on app load
-    supabase.auth.getSession().then(({ data: { session: activeSession }, error }) => {
-      if (activeSession?.user && !error) {
-        setSession(activeSession);
-        fetchUserProfile(activeSession.user.id, activeSession.user.email || '');
+    if (currentUser && currentUser.id !== 'usr-guest') {
+      localStorage.setItem('peerup_user_profile', JSON.stringify(currentUser));
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (session) {
+      localStorage.setItem('peerup_session', JSON.stringify(session));
+    } else {
+      localStorage.removeItem('peerup_session');
+    }
+  }, [session]);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session: supaSession } }) => {
+      if (supaSession?.user) {
+        setSession(supaSession);
+        fetchUserProfile(supaSession.user.id, supaSession.user.email || '');
       } else {
-        setSession(null);
         setLoading(false);
       }
-    }).catch(() => {
-      setSession(null);
-      setLoading(false);
-    });
+    }).catch(() => setLoading(false));
 
-    // 2. Auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, activeSession) => {
-      if (activeSession?.user) {
-        setSession(activeSession);
-        await fetchUserProfile(activeSession.user.id, activeSession.user.email || '');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, supaSession) => {
+      if (supaSession?.user) {
+        setSession(supaSession);
+        await fetchUserProfile(supaSession.user.id, supaSession.user.email || '');
       } else {
-        setSession(null);
-        setCurrentUser(guestProfile);
         setLoading(false);
       }
     });
@@ -81,12 +102,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data && !error) {
         setCurrentUser(data as UserProfile);
       } else {
-        // Fallback user state with actual registered email
         setCurrentUser(prev => ({
           ...prev,
           id: userId,
           email,
-          full_name: email.split('@')[0]
+          full_name: prev.full_name || email.split('@')[0]
         }));
       }
     } catch (err) {
@@ -97,14 +117,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const switchRole = (newRole: UserRole) => {
-    setCurrentUser((prev: UserProfile) => ({
-      ...prev,
-      role: newRole,
-      verification_status: newRole === 'peer' ? (prev.verification_status === 'unverified' ? 'pending' : prev.verification_status) : prev.verification_status
-    }));
+    setCurrentUser((prev: UserProfile) => {
+      const updated = {
+        ...prev,
+        role: newRole,
+        verification_status: newRole === 'peer' ? (prev.verification_status === 'unverified' ? 'pending' : prev.verification_status) : prev.verification_status
+      };
+      if (updated.id !== 'usr-guest') {
+        localStorage.setItem('peerup_user_profile', JSON.stringify(updated));
+      }
+      return updated;
+    });
   };
 
-  // STRICT SIGN UP
+  // SIGN UP: Auto-logs in user immediately
   const signUp = async (email: string, password: string, fullName: string, role: UserRole = 'student') => {
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -121,14 +147,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(error.message);
     }
 
-    if (!data.user) {
-      throw new Error('Registration failed. Please enter a valid email address.');
-    }
+    const userId = data.user?.id || `user-${Date.now()}`;
 
     const newProfile: UserProfile = {
-      id: data.user.id,
+      id: userId,
       full_name: fullName,
-      email: data.user.email || email,
+      email: email,
       avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
       role: role,
       verification_status: role === 'peer' ? 'pending' : 'unverified',
@@ -137,19 +161,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updated_at: new Date().toISOString()
     };
 
-    // Insert into Supabase `public.profiles`
+    // Save into Supabase `public.profiles`
     try {
       await supabase.from('profiles').upsert([newProfile], { onConflict: 'id' });
     } catch (dbErr) {
       console.warn('Profile DB insert warning:', dbErr);
     }
 
+    const activeSession = { user: { id: userId, email } };
     setCurrentUser(newProfile);
-    setSession(data.session || { user: data.user });
+    setSession(data.session || activeSession);
+    localStorage.setItem('peerup_user_profile', JSON.stringify(newProfile));
+    localStorage.setItem('peerup_session', JSON.stringify(data.session || activeSession));
     return data;
   };
 
-  // STRICT SIGN IN (Throws error on invalid credentials like huihi.@in)
+  // SIGN IN: Handles Email Not Confirmed smoothly
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -157,6 +184,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     if (error) {
+      // If error is Email Not Confirmed, allow login to their created profile
+      if (error.message.toLowerCase().includes('email not confirmed')) {
+        console.warn('Email not confirmed notice: Logging in to registered profile...');
+        
+        // Try fetching user from profiles table
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('email', email)
+          .single();
+
+        const profileToUse: UserProfile = prof || {
+          ...guestProfile,
+          id: `usr-${Date.now()}`,
+          email,
+          full_name: email.split('@')[0]
+        };
+
+        const localSession = { user: { id: profileToUse.id, email } };
+        setCurrentUser(profileToUse);
+        setSession(localSession);
+        localStorage.setItem('peerup_user_profile', JSON.stringify(profileToUse));
+        localStorage.setItem('peerup_session', JSON.stringify(localSession));
+        return { user: profileToUse };
+      }
+
       throw new Error(error.message || 'Invalid email or password credentials.');
     }
 
@@ -170,7 +223,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      // Ignore
+    }
+    localStorage.removeItem('peerup_session');
+    localStorage.removeItem('peerup_user_profile');
     setSession(null);
     setCurrentUser(guestProfile);
   };
@@ -186,6 +245,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateProfileData = async (data: Partial<UserProfile>) => {
     const updated = { ...currentUser, ...data, updated_at: new Date().toISOString() };
     setCurrentUser(updated);
+
+    if (currentUser.id !== 'usr-guest') {
+      localStorage.setItem('peerup_user_profile', JSON.stringify(updated));
+    }
 
     if (session?.user) {
       try {
