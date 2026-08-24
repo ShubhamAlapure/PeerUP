@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { getAssignments, getInstitutions } from '../services/api';
+import { getAssignments, getContentList, getInstitutions } from '../services/api';
 import type { ContentItem, Institution } from '../types';
 import { AcademicIntegrityNotice } from '../components/AcademicIntegrityNotice';
 import { PdfPreviewModal } from '../components/PdfPreviewModal';
-import { FolderKanban, Search, Download, Eye, Filter } from 'lucide-react';
+import { FolderKanban, Search, Download, Eye, Filter, FileText, CheckCircle } from 'lucide-react';
 
 export const RepositoryPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,24 +29,68 @@ export const RepositoryPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    async function loadAssignments() {
+    async function loadAllFreeResources() {
       try {
-        const data = await getAssignments({ search: searchQuery });
-        setAssignments(data);
+        setLoading(true);
+
+        // 1. Fetch free assignment references
+        let baseAssignments: ContentItem[] = [];
+        try {
+          baseAssignments = await getAssignments({ search: searchQuery });
+        } catch (e) {
+          console.warn('getAssignments notice:', e);
+        }
+
+        // 2. Fetch all free explanations from general content list
+        let freeContent: ContentItem[] = [];
+        try {
+          const allContent = await getContentList({});
+          freeContent = allContent.filter((c: any) => c.is_free || c.price === 0 || c.content_type === 'pdf_explanation');
+        } catch (e) {
+          console.warn('getContentList notice:', e);
+        }
+
+        // 3. Read locally published resources from localStorage
+        let localUploaded: ContentItem[] = [];
+        try {
+          const raw = localStorage.getItem('peerup_user_uploaded_resources');
+          if (raw) localUploaded = JSON.parse(raw);
+        } catch (e) {}
+
+        // Combine all free resources uniquely
+        const existingIds = new Set<string>();
+        const combined: ContentItem[] = [];
+
+        [...localUploaded, ...freeContent, ...baseAssignments].forEach(item => {
+          if (!existingIds.has(item.id)) {
+            existingIds.add(item.id);
+            combined.push(item);
+          }
+        });
+
+        setAssignments(combined);
       } catch (err) {
-        console.error('Assignment repository load error:', err);
+        console.error('Free repository load error:', err);
       } finally {
         setLoading(false);
       }
     }
-    loadAssignments();
+
+    loadAllFreeResources();
   }, [searchQuery]);
 
-  // Client-side filtering by University, Year, Semester
+  // Filtering logic
   const filteredAssignments = assignments.filter(item => {
     if (selectedInstId !== 'all' && item.institution_id !== selectedInstId) return false;
     if (selectedYear !== 'all' && item.year && item.year !== Number(selectedYear)) return false;
     if (selectedSemester !== 'all' && item.semester && item.semester !== Number(selectedSemester)) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const titleMatch = (item.title || '').toLowerCase().includes(q);
+      const descMatch = (item.description || '').toLowerCase().includes(q);
+      const subjMatch = (item.subject_name || '').toLowerCase().includes(q);
+      return titleMatch || descMatch || subjMatch;
+    }
     return true;
   });
 
@@ -60,11 +104,11 @@ export const RepositoryPage: React.FC = () => {
         </div>
 
         <h1 className="text-3xl sm:text-4xl font-extrabold text-[#2e1065] tracking-tight">
-          Free Assignment Reference Repository
+          Free Assignment & PDF Reference Repository
         </h1>
 
         <p className="text-sm text-slate-600 max-w-3xl leading-relaxed font-medium">
-          Browse previous year assignment references, worked practice problems, and study guides uploaded by verified senior peers across Pune universities & colleges.
+          Browse previous year assignment references, worked practice problems, lab screenshots, and PDF study guides uploaded by verified senior peers. Accessible to everyone at ₹0.
         </p>
 
         {/* Mandatory Academic Integrity Notice */}
@@ -97,7 +141,6 @@ export const RepositoryPage: React.FC = () => {
               <option value="inst-mit-wpu">MIT World Peace University</option>
               <option value="inst-cummins">Cummins College of Engineering</option>
               <option value="inst-dypu">D Y Patil International University</option>
-              <option value="inst-jspm">JSPM Institutes</option>
             </select>
           </div>
 
@@ -148,51 +191,66 @@ export const RepositoryPage: React.FC = () => {
 
       {/* Assignment Reference Cards List */}
       <div className="space-y-5">
-        {filteredAssignments.map(item => (
-          <div key={item.id} className="violet-card p-6 bg-white flex flex-col md:flex-row md:items-center justify-between gap-6 border-l-4 border-l-[#6d28d9]">
-            <div className="space-y-2.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="bg-purple-100 text-[#6d28d9] font-extrabold text-[11px] px-2.5 py-1 rounded-md border border-purple-200 uppercase tracking-wider">
-                  FREE REFERENCE
-                </span>
-                <span className="text-xs font-bold text-slate-600">{item.institution_name}</span>
-                <span className="text-slate-300">•</span>
-                <span className="text-xs font-extrabold text-[#6d28d9]">{item.subject_name}</span>
-              </div>
+        {filteredAssignments.length === 0 ? (
+          <div className="py-12 bg-purple-50 rounded-2xl border border-purple-200 text-center text-slate-600 font-medium text-xs">
+            No free resources found matching your filters. Use <strong>+ Create Explanation</strong> to upload a PDF!
+          </div>
+        ) : (
+          filteredAssignments.map(item => {
+            const hasFiles = item.files && item.files.length > 0;
+            const targetFile = hasFiles ? item.files![0] : {
+              file_name: `${item.title}.pdf`,
+              file_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+            };
 
-              <h3 className="font-extrabold text-[#2e1065] text-xl hover:text-[#6d28d9] transition-colors">{item.title}</h3>
-              <p className="text-xs text-slate-600 leading-relaxed max-w-3xl font-medium">{item.description}</p>
+            return (
+              <div key={item.id} className="violet-card p-6 bg-white flex flex-col md:flex-row md:items-center justify-between gap-6 border-l-4 border-l-[#6d28d9] shadow-md">
+                <div className="space-y-2.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="bg-emerald-100 text-emerald-800 font-extrabold text-[11px] px-2.5 py-1 rounded-md border border-emerald-300 uppercase tracking-wider flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3 text-emerald-600" />
+                      FREE REFERENCE (₹0)
+                    </span>
+                    <span className="text-xs font-bold text-slate-600">{item.institution_name || 'MIT ADT University'}</span>
+                    <span className="text-slate-300">•</span>
+                    <span className="text-xs font-extrabold text-[#6d28d9]">{item.subject_name || 'General Academic'}</span>
+                  </div>
 
-              <div className="text-[11px] text-amber-900 font-semibold bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 inline-block">
-                ⚠️ For reference and learning purposes only. Do not submit another student's work as your own.
-              </div>
-            </div>
+                  <h3 className="font-extrabold text-[#2e1065] text-xl hover:text-[#6d28d9] transition-colors flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-[#6d28d9] shrink-0" />
+                    <span>{item.title}</span>
+                  </h3>
+                  <p className="text-xs text-slate-600 leading-relaxed max-w-3xl font-medium">{item.description}</p>
 
-            <div className="flex items-center gap-3 shrink-0">
-              {item.files && item.files.length > 0 && (
-                <>
+                  <div className="text-[11px] text-amber-900 font-semibold bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 inline-block">
+                    ⚠️ For reference and learning purposes only. Do not submit another student's work as your own.
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
                   <button
-                    onClick={() => setSelectedPdf({ fileName: item.files![0].file_name, fileUrl: item.files![0].file_url })}
-                    className="btn-violet-secondary text-xs py-2.5 px-4"
+                    onClick={() => setSelectedPdf({ fileName: targetFile.file_name, fileUrl: targetFile.file_url })}
+                    className="btn-violet-secondary text-xs py-2.5 px-4 font-bold flex items-center gap-2 shadow-xs"
                   >
                     <Eye className="w-4 h-4 text-[#6d28d9]" />
                     <span>Preview PDF</span>
                   </button>
 
                   <a
-                    href={item.files[0].file_url}
+                    href={targetFile.file_url}
+                    download={targetFile.file_name}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="btn-violet-primary text-xs py-2.5 px-4"
+                    className="btn-violet-primary text-xs py-2.5 px-4 font-bold flex items-center gap-2 shadow-md"
                   >
                     <Download className="w-4 h-4" />
                     <span>Download</span>
                   </a>
-                </>
-              )}
-            </div>
-          </div>
-        ))}
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* PDF Modal Viewer */}
