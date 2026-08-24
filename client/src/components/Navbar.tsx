@@ -94,7 +94,7 @@ export const Navbar: React.FC = () => {
               <Link
                 to="/dashboard"
                 className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  isActive('/dashboard') ? 'bg-[#6d28d9] text-white shadow-md' : 'text-slate-700 hover:text-[#6d28d9] hover:bg-[#f5f3ff]'
+                  isActive('/dashboard') ? 'bg-[#6d28d9] text-[#6d28d9] bg-purple-100 shadow-xs' : 'text-slate-700 hover:text-[#6d28d9] hover:bg-[#f5f3ff]'
                 }`}
               >
                 <LayoutDashboard className="w-4 h-4" />
@@ -106,7 +106,7 @@ export const Navbar: React.FC = () => {
             <Link
               to={session ? "/repository" : "/login"}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                isActive('/repository') ? 'bg-[#6d28d9] text-white shadow-md' : 'text-slate-700 hover:text-[#6d28d9] hover:bg-[#f5f3ff]'
+                isActive('/repository') ? 'bg-emerald-100 text-emerald-800 shadow-xs' : 'text-slate-700 hover:text-[#6d28d9] hover:bg-[#f5f3ff]'
               }`}
             >
               <FolderKanban className="w-4 h-4 text-emerald-600" />
@@ -117,18 +117,19 @@ export const Navbar: React.FC = () => {
             <Link
               to={session ? "/peers" : "/login"}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                isActive('/peers') ? 'bg-[#6d28d9] text-white shadow-md' : 'text-slate-700 hover:text-[#6d28d9] hover:bg-[#f5f3ff]'
+                isActive('/peers') ? 'bg-purple-100 text-[#6d28d9] shadow-xs' : 'text-slate-700 hover:text-[#6d28d9] hover:bg-[#f5f3ff]'
               }`}
             >
               <Users className="w-4 h-4 text-purple-600" />
               Verified Peers
             </Link>
 
-            {session && (
+            {/* Requests - Hidden for Logged In Students */}
+            {session && currentUser.role !== 'student' && (
               <Link
                 to="/requests"
                 className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  isActive('/requests') ? 'bg-[#6d28d9] text-white shadow-md' : 'text-slate-700 hover:text-[#6d28d9] hover:bg-[#f5f3ff]'
+                  isActive('/requests') ? 'bg-amber-100 text-amber-800 shadow-xs' : 'text-slate-700 hover:text-[#6d28d9] hover:bg-[#f5f3ff]'
                 }`}
               >
                 <MessageSquarePlus className="w-4 h-4 text-amber-600" />
@@ -149,16 +150,18 @@ export const Navbar: React.FC = () => {
             )}
           </nav>
 
-          {/* Become a Peer Action Button */}
-          <Link
-            to={session ? "/create-explanation" : "/signup?role=peer"}
-            className="btn-violet-primary text-xs py-2 px-3.5 hidden sm:inline-flex"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>Become a Peer</span>
-          </Link>
+          {/* Become a Peer / Create Explanation Action Button - Hidden for Logged In Students */}
+          {(!session || currentUser.role !== 'student') && (
+            <Link
+              to={session ? "/create-explanation" : "/signup?role=peer"}
+              className="btn-violet-primary text-xs py-2 px-3.5 hidden sm:inline-flex"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>{session ? "+ Create Explanation" : "Become a Peer"}</span>
+            </Link>
+          )}
 
-          {/* Logged In User Profile Menu with Interactive Dropdown (Option 1: Edit Profile, Option 2: Log Out) */}
+          {/* Logged In User Profile Menu with Interactive Dropdown */}
           {session ? (
             <div className="relative pl-2 border-l border-purple-200" ref={dropdownRef}>
               <button
