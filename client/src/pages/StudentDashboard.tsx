@@ -84,15 +84,58 @@ export const StudentDashboard: React.FC = () => {
 
   useEffect(() => {
     async function loadDashboard() {
+      // 1. Calculate EXACT free resource items count dynamically
+      const uniqueFreeIds = new Set<string>();
+
+      try {
+        const assns = await getAssignments({});
+        if (assns && Array.isArray(assns)) {
+          assns.forEach(item => uniqueFreeIds.add(item.id));
+        }
+      } catch (e) {}
+
+      try {
+        const cnts = await getContentList({});
+        if (cnts && Array.isArray(cnts)) {
+          cnts.filter((c: any) => c.is_free || c.price === 0 || c.content_type === 'pdf_explanation')
+              .forEach(item => uniqueFreeIds.add(item.id));
+          setRecommendedContent(cnts);
+        }
+      } catch (e) {}
+
+      try {
+        const { data: dbExps } = await supabase
+          .from('explanations')
+          .select('*')
+          .or('is_free.eq.true,price.eq.0,content_type.eq.pdf_explanation');
+
+        if (dbExps && Array.isArray(dbExps)) {
+          dbExps.forEach(item => uniqueFreeIds.add(item.id));
+        }
+      } catch (e) {}
+
+      try {
+        const raw = localStorage.getItem('peerup_user_uploaded_resources');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((item: any) => uniqueFreeIds.add(item.id));
+          }
+        }
+      } catch (e) {}
+
+      // Set exact free count state
+      setFreeResourceCount(uniqueFreeIds.size);
+
+      // 2. Load Institutions
       try {
         const insts = await getInstitutions();
         const foundInst = insts.find(i => i.id === currentUser.institution_id) || insts[0];
         setInstitution(foundInst);
+      } catch (e) {}
 
-        const cnts = await getContentList({});
-        setRecommendedContent(cnts);
-
-        // Fetch real-time peers from DB to calculate exact tutor count
+      // 3. Load Peers
+      try {
         let dbPeers: any[] = [];
         try {
           const { data } = await supabase
@@ -117,16 +160,12 @@ export const StudentDashboard: React.FC = () => {
               helpful_percentage: 100
             }));
           }
-        } catch (e) {
-          console.warn('DB peers count notice:', e);
-        }
+        } catch (e) {}
 
         let apiPeers: any[] = [];
         try {
           apiPeers = await getPeers();
-        } catch (e) {
-          console.warn('API peers notice:', e);
-        }
+        } catch (e) {}
 
         const existingEmails = new Set(dbPeers.map(dp => dp.email?.toLowerCase()));
         const mergedApi = apiPeers.filter(ap => !existingEmails.has(ap.email?.toLowerCase()));
@@ -134,52 +173,18 @@ export const StudentDashboard: React.FC = () => {
 
         const mergedFallback = defaultFallbackPeers.filter(fp => !existingEmails.has(fp.email?.toLowerCase()));
 
-        const finalPeersList = [...dbPeers, ...mergedApi, ...mergedFallback];
-        setPeers(finalPeersList);
+        setPeers([...dbPeers, ...mergedApi, ...mergedFallback]);
+      } catch (e) {}
 
+      // 4. Load Purchases
+      try {
         const prchs = await getUserPurchases(currentUser.id);
-        setPurchases(prchs);
+        if (prchs && Array.isArray(prchs)) setPurchases(prchs);
+      } catch (e) {}
 
-        // Calculate EXACT free resource items count dynamically without any minimum floor
-        const uniqueFreeIds = new Set<string>();
-
-        try {
-          const assns = await getAssignments({});
-          assns.forEach(item => uniqueFreeIds.add(item.id));
-        } catch (e) {}
-
-        try {
-          const freeCnts = cnts.filter((c: any) => c.is_free || c.price === 0 || c.content_type === 'pdf_explanation');
-          freeCnts.forEach(item => uniqueFreeIds.add(item.id));
-        } catch (e) {}
-
-        try {
-          const { data: dbExps } = await supabase
-            .from('explanations')
-            .select('*')
-            .or('is_free.eq.true,price.eq.0,content_type.eq.pdf_explanation');
-
-          if (dbExps) {
-            dbExps.forEach(item => uniqueFreeIds.add(item.id));
-          }
-        } catch (e) {}
-
-        try {
-          const raw = localStorage.getItem('peerup_user_uploaded_resources');
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            parsed.forEach((item: any) => uniqueFreeIds.add(item.id));
-          }
-        } catch (e) {}
-
-        setFreeResourceCount(uniqueFreeIds.size);
-
-      } catch (err) {
-        console.error('Dashboard load error:', err);
-      } finally {
-        setLoading(false);
-      }
+      setLoading(false);
     }
+
     loadDashboard();
   }, [currentUser]);
 
@@ -346,7 +351,7 @@ export const StudentDashboard: React.FC = () => {
               onClick={() => setActiveTab('recommended')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                 activeTab === 'recommended'
-                  ? 'bg-[#6d28d9] text-white shadow-md'
+                  ? 'bg-[#6d28d9] text-[#6d28d9] bg-purple-100 shadow-md'
                   : 'bg-white text-slate-700 hover:bg-purple-50'
               }`}
             >
