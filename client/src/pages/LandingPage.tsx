@@ -160,8 +160,10 @@ export const LandingPage: React.FC = () => {
       {/* 2. Real Pune University Logos Strip */}
       <section className="bg-white border-y border-purple-200 py-10 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto space-y-6">
-          <p className="text-xs font-black text-[#6d28d9] uppercase tracking-widest text-center">
-            Students from Popular Universities & Institutions in Pune
+          <p className="text-xs font-black text-[#6d28d9] uppercase tracking-widest text-center flex items-center justify-center gap-1.5">
+            <span>Powered by</span>
+            <span className="text-red-500 text-sm">❤️</span>
+            <span>of Students from Popular Universities & Institutions in Pune</span>
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-5 md:gap-8">
