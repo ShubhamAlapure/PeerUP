@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AcademicIntegrityNotice } from './AcademicIntegrityNotice';
-import { FileText, Download, X, ExternalLink, ZoomIn, ZoomOut, Image as ImageIcon, BookOpen, AlertCircle } from 'lucide-react';
+import { FileText, Download, X, ExternalLink, ZoomIn, ZoomOut, Image as ImageIcon, BookOpen, AlertCircle, Code } from 'lucide-react';
 
 interface PdfPreviewProps {
   fileName: string;
@@ -11,7 +11,10 @@ interface PdfPreviewProps {
 export const PdfPreviewModal: React.FC<PdfPreviewProps> = ({ fileName, fileUrl, onClose }) => {
   const [zoom, setZoom] = useState<number>(100);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [ipynbContent, setIpynbContent] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
+
+  const isIpynb = fileName.toLowerCase().endsWith('.ipynb') || fileUrl.includes('.ipynb');
 
   const isImage = fileUrl.startsWith('data:image/') || 
                   /\.(png|jpg|jpeg|webp|gif|svg)(\?.*)?$/i.test(fileUrl) || 
@@ -20,8 +23,21 @@ export const PdfPreviewModal: React.FC<PdfPreviewProps> = ({ fileName, fileUrl, 
   const isBase64 = fileUrl.startsWith('data:');
 
   useEffect(() => {
-    // If base64 data URL, convert to Blob URL for clean iframe/embed rendering without X-Frame restriction
-    if (isBase64 && !isImage) {
+    // 1. If Jupyter Notebook (.ipynb), decode and parse content
+    if (isIpynb && isBase64) {
+      try {
+        const parts = fileUrl.split(';base64,');
+        if (parts.length === 2) {
+          const raw = window.atob(parts[1]);
+          setIpynbContent(raw);
+        }
+      } catch (e) {
+        console.warn('IPYNB parse error:', e);
+      }
+    }
+
+    // 2. If base64 data URL PDF, convert to Blob URL
+    if (isBase64 && !isImage && !isIpynb) {
       try {
         const parts = fileUrl.split(';base64,');
         if (parts.length === 2) {
@@ -40,7 +56,7 @@ export const PdfPreviewModal: React.FC<PdfPreviewProps> = ({ fileName, fileUrl, 
         console.warn('Base64 blob conversion notice:', e);
       }
     }
-  }, [fileUrl, isBase64, isImage]);
+  }, [fileUrl, isBase64, isImage, isIpynb]);
 
   const activeRenderUrl = pdfBlobUrl || fileUrl;
 
@@ -51,12 +67,12 @@ export const PdfPreviewModal: React.FC<PdfPreviewProps> = ({ fileName, fileUrl, 
         <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
-              {isImage ? <ImageIcon className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+              {isIpynb ? <Code className="w-5 h-5 text-amber-400" /> : isImage ? <ImageIcon className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
             </div>
             <div>
               <h3 className="font-extrabold text-white text-sm line-clamp-1">{fileName}</h3>
               <p className="text-[11px] text-slate-400 font-medium">
-                {isImage ? 'Document Screenshot Preview' : 'PDF Reference Document Reader'}
+                {isIpynb ? 'Jupyter Notebook (.ipynb) Code Reader' : isImage ? 'Document Screenshot Preview' : 'Reference Document Reader'}
               </p>
             </div>
           </div>
@@ -97,7 +113,7 @@ export const PdfPreviewModal: React.FC<PdfPreviewProps> = ({ fileName, fileUrl, 
               className="btn-violet-primary py-1.5 px-3 text-xs font-bold flex items-center gap-1.5"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Download</span>
+              <span>Download File</span>
             </a>
 
             <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800">
@@ -106,14 +122,24 @@ export const PdfPreviewModal: React.FC<PdfPreviewProps> = ({ fileName, fileUrl, 
           </div>
         </div>
 
-        {/* Mandatory Academic Integrity Notice inside PDF Previewer */}
+        {/* Mandatory Academic Integrity Notice */}
         <div className="p-3 bg-amber-950/40 border-b border-amber-500/20">
           <AcademicIntegrityNotice compact />
         </div>
 
         {/* Document Rendering Canvas */}
         <div className="flex-1 bg-slate-950 flex items-center justify-center p-4 overflow-auto relative">
-          {isImage ? (
+          {isIpynb ? (
+            <div className="w-full h-full p-6 bg-slate-900 border border-slate-800 rounded-xl overflow-auto text-xs font-mono text-emerald-400 leading-relaxed shadow-inner">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800 text-slate-400 text-xs mb-4">
+                <span className="font-bold flex items-center gap-2 text-amber-400">
+                  <Code className="w-4 h-4" /> Jupyter Notebook Source Preview
+                </span>
+                <span>Max File Limit: 10 MB</span>
+              </div>
+              <pre className="whitespace-pre-wrap word-break">{ipynbContent || 'Jupyter Notebook document ready for download.'}</pre>
+            </div>
+          ) : isImage ? (
             <div className="overflow-auto max-h-full max-w-full flex items-center justify-center">
               <img
                 src={activeRenderUrl}
@@ -134,7 +160,7 @@ export const PdfPreviewModal: React.FC<PdfPreviewProps> = ({ fileName, fileUrl, 
                   className="btn-violet-primary py-2 px-5 text-xs font-bold"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Download PDF Document</span>
+                  <span>Download Document</span>
                 </a>
               </div>
             </div>
@@ -148,7 +174,7 @@ export const PdfPreviewModal: React.FC<PdfPreviewProps> = ({ fileName, fileUrl, 
               />
               <div className="absolute bottom-4 right-4 bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-xl border border-slate-700 text-xs font-bold text-slate-300 flex items-center gap-2 shadow-lg">
                 <BookOpen className="w-4 h-4 text-purple-400" />
-                <span>Interactive PDF Viewer</span>
+                <span>Interactive Document Viewer</span>
               </div>
             </div>
           )}

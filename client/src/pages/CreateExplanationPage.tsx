@@ -6,7 +6,7 @@ import { supabase } from '../services/supabaseClient';
 import { MediaStudioRecorder } from '../components/MediaStudioRecorder';
 import { AcademicIntegrityNotice } from '../components/AcademicIntegrityNotice';
 import type { ContentType, Institution } from '../types';
-import { PlusCircle, Video, Mic, FileText, FileSpreadsheet, CheckCircle, AlertCircle, Building, UploadCloud, File, Trash2 } from 'lucide-react';
+import { PlusCircle, Video, Mic, FileText, FileSpreadsheet, CheckCircle, AlertCircle, Building, UploadCloud, File, Trash2, Code } from 'lucide-react';
 
 export const CreateExplanationPage: React.FC = () => {
   const { currentUser } = useAuth();
@@ -20,11 +20,11 @@ export const CreateExplanationPage: React.FC = () => {
   const [markdownText, setMarkdownText] = useState('');
   const [durationSeconds, setDurationSeconds] = useState<number>(300);
 
-  // File Upload State (PDF, Document, Screenshots)
+  // File Upload State (PDF, IPYNB, Docs, Sheets, Screenshots)
   const [attachedFile, setAttachedFile] = useState<{ name: string; url: string; size: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Academic Mapping Fields (University, Specialization, Year, Semester, Subject)
+  // Academic Mapping Fields
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [selectedInstId, setSelectedInstId] = useState<string>('inst-mit-adt');
   const [specialization, setSpecialization] = useState<string>('Computer Science & Engineering (CSE)');
@@ -53,8 +53,17 @@ export const CreateExplanationPage: React.FC = () => {
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Strict 10 MB File Size Enforcement
+    const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+    if (file.size > MAX_SIZE_BYTES) {
+      const actualSizeMb = (file.size / (1024 * 1024)).toFixed(2);
+      setError(`File size (${actualSizeMb} MB) exceeds maximum allowed limit of 10 MB. Please upload a smaller file.`);
+      return;
+    }
 
     setIsUploading(true);
     const sizeInMb = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
@@ -71,7 +80,7 @@ export const CreateExplanationPage: React.FC = () => {
     };
 
     reader.onerror = () => {
-      setError('Failed to read file.');
+      setError('Failed to read selected file.');
       setIsUploading(false);
     };
 
@@ -89,7 +98,7 @@ export const CreateExplanationPage: React.FC = () => {
       return;
     }
     if (contentType === 'pdf_explanation' && !attachedFile) {
-      setError('Please attach a PDF document or reference file to publish a PDF Explanation.');
+      setError('Please attach a PDF, Jupyter notebook (.ipynb), doc, or sheet file to publish.');
       return;
     }
 
@@ -128,7 +137,7 @@ export const CreateExplanationPage: React.FC = () => {
         console.warn('API createExplanation notice:', apiErr);
       }
 
-      // 2. Direct Supabase DB insert if enabled
+      // 2. Direct Supabase DB insert
       try {
         await supabase.from('explanations').insert([{
           owner_id: currentUser.id.includes('-') ? currentUser.id : null,
@@ -203,7 +212,7 @@ export const CreateExplanationPage: React.FC = () => {
           <span>Peer Explanation Studio</span>
         </div>
         <h1 className="text-3xl font-black text-[#2e1065]">Create & Upload Resource / Explanation</h1>
-        <p className="text-sm text-slate-600 font-medium">Upload PDF resources, assignment walkthroughs, or study notes. Set Price = ₹0 to publish directly to the Free Student Repository!</p>
+        <p className="text-sm text-slate-600 font-medium">Upload PDF, Jupyter Notebooks (.ipynb), Docs, Sheets, or study notes. Set Price = ₹0 to publish directly to the Free Student Repository!</p>
       </div>
 
       <AcademicIntegrityNotice />
@@ -228,7 +237,7 @@ export const CreateExplanationPage: React.FC = () => {
                 }`}
               >
                 <FileSpreadsheet className="w-6 h-6 text-amber-300" />
-                <span>PDF + Explanation</span>
+                <span>PDF, IPYNB & Docs</span>
               </button>
 
               <button
@@ -350,12 +359,12 @@ export const CreateExplanationPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Interactive File Attachment / PDF Upload Section */}
+          {/* Interactive File Attachment Upload Section (PDF, IPYNB, DOCS, SHEETS, ETC) */}
           <div className="space-y-3 pt-4 border-t border-purple-200">
             <label className="block font-extrabold text-[#2e1065] text-sm flex items-center justify-between">
-              <span>Step 3: Attach PDF / Reference Document</span>
+              <span>Step 3: Attach Resource File (.ipynb, .pdf, .docx, .xlsx, screenshots)</span>
               {contentType === 'pdf_explanation' && (
-                <span className="text-xs text-[#6d28d9] font-extrabold uppercase">* Required for PDF Explanation</span>
+                <span className="text-xs text-[#6d28d9] font-extrabold uppercase">* Max 10MB limit</span>
               )}
             </label>
 
@@ -363,7 +372,7 @@ export const CreateExplanationPage: React.FC = () => {
               <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
-                    <File className="w-5 h-5" />
+                    {attachedFile.name.endsWith('.ipynb') ? <Code className="w-5 h-5" /> : <File className="w-5 h-5" />}
                   </div>
                   <div>
                     <p className="text-xs font-extrabold text-emerald-950">{attachedFile.name}</p>
@@ -383,16 +392,16 @@ export const CreateExplanationPage: React.FC = () => {
               <div className="relative border-2 border-dashed border-purple-300 rounded-2xl p-6 bg-[#f8f6ff] hover:bg-purple-100/50 transition-colors text-center cursor-pointer">
                 <input
                   type="file"
-                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.mp4"
+                  accept=".ipynb,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.mp4,.zip,.rar"
                   onChange={handleFileUpload}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
                 <div className="flex flex-col items-center gap-2">
                   <UploadCloud className="w-8 h-8 text-[#6d28d9]" />
                   <span className="text-xs font-black text-[#2e1065]">
-                    {isUploading ? 'Uploading file...' : 'Click to Upload PDF or Drag & Drop File'}
+                    {isUploading ? 'Uploading resource...' : 'Click or Drag & Drop File (.ipynb, .pdf, .docx, .xlsx)'}
                   </span>
-                  <span className="text-[10px] text-slate-500 font-medium">Supports PDF documents, Lab Manuals, Notes & Screenshots (Max 25MB)</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Supports Jupyter Notebooks (.ipynb), PDFs, Word Docs (.docx), Spreadsheets (.xlsx, .csv), Screenshots & Code files (Max 10MB limit)</span>
                 </div>
               </div>
             )}
@@ -428,7 +437,7 @@ export const CreateExplanationPage: React.FC = () => {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Screenshots & Solution for Machine Learning Lab Experiments 1-4"
+                placeholder="e.g. Machine Learning Lab Experiments & Jupyter Notebook (.ipynb)"
                 className="w-full p-3 bg-[#f8f6ff] border border-purple-200 rounded-xl text-slate-900 text-sm font-bold focus:outline-none focus:border-[#6d28d9]"
               />
             </div>
@@ -439,7 +448,7 @@ export const CreateExplanationPage: React.FC = () => {
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Summary of what students will learn from this PDF reference..."
+                placeholder="Summary of what students will learn from this reference document..."
                 className="w-full p-3 bg-[#f8f6ff] border border-purple-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:border-[#6d28d9]"
               />
             </div>
