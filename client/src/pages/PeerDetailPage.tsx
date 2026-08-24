@@ -11,29 +11,12 @@ const isValidUUID = (str?: string) => {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 };
 
-const defaultAtharvProfile = {
-  id: 'peer_89b7789d-087d-4517-a0eb-534f8a28c0ac',
-  user_id: '89b7789d-087d-4517-a0eb-534f8a28c0ac',
-  full_name: 'Atharv Sadewad',
-  email: 'atharv@gmail.com',
-  avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-  institution_id: 'inst-mit-adt',
-  institution_name: 'MIT ADT University (Pune)',
-  verification_status: 'verified',
-  bio: 'Cyber Security & Forensics Senior Peer Tutor. Specializing in DBMS, Network Security, and Systems Architecture.',
-  total_earnings: 1240,
-  available_balance: 890,
-  learners_helped: 142,
-  average_rating: 5.0,
-  helpful_percentage: 100
-};
-
 export const PeerDetailPage: React.FC = () => {
   const { peerId } = useParams<{ peerId: string }>();
   const { currentUser, session } = useAuth();
   const navigate = useNavigate();
 
-  const [peer, setPeer] = useState<any>(defaultAtharvProfile);
+  const [peer, setPeer] = useState<any>(null);
   const [explanations, setExplanations] = useState<any[]>([]);
   const [payoutAmount, setPayoutAmount] = useState<string>('250');
   const [payoutMsg, setPayoutMsg] = useState<string | null>(null);
@@ -61,7 +44,23 @@ export const PeerDetailPage: React.FC = () => {
         setLoading(true);
         const cleanId = peerId.startsWith('peer_') ? peerId.replace('peer_', '') : peerId;
 
-        // 1. Query Supabase DB profiles table for latest real peer data
+        // 1. Check local storage cache by email / ID for instant updated profile match
+        const localSavedByEmail = localStorage.getItem(`peerup_user_profile_${cleanId.toLowerCase()}`);
+        const localSavedActive = localStorage.getItem('peerup_user_profile');
+        let cachedUser: any = null;
+
+        if (localSavedByEmail) {
+          try { cachedUser = JSON.parse(localSavedByEmail); } catch (e) {}
+        } else if (localSavedActive) {
+          try {
+            const parsed = JSON.parse(localSavedActive);
+            if (parsed.id === cleanId || parsed.email?.toLowerCase() === cleanId.toLowerCase() || cleanId.includes('89b7789d')) {
+              cachedUser = parsed;
+            }
+          } catch (e) {}
+        }
+
+        // 2. Query Supabase DB profiles table for latest real peer data
         let dbUser: any = null;
         try {
           let query = supabase.from('profiles').select('*');
@@ -79,7 +78,7 @@ export const PeerDetailPage: React.FC = () => {
           console.warn('Direct DB query notice:', e);
         }
 
-        // 2. Try REST API as secondary source
+        // 3. Try REST API as secondary source
         let apiData: any = null;
         try {
           apiData = await getPeerDetails(peerId);
@@ -87,22 +86,26 @@ export const PeerDetailPage: React.FC = () => {
           console.warn('API getPeerDetails notice:', e);
         }
 
-        // Combine: DB user data takes absolute precedence
+        // Merge: cachedUser and dbUser take absolute precedence over hardcoded values!
+        const finalFullName = cachedUser?.full_name || dbUser?.full_name || apiData?.full_name || apiData?.user_name || 'Atharv S';
+        const finalAvatarUrl = cachedUser?.avatar_url || dbUser?.avatar_url || apiData?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
+        const finalBio = cachedUser?.bio || dbUser?.bio || apiData?.bio || 'Cyber Security & Systems Senior Peer Tutor';
+
         const mergedPeer = {
-          id: dbUser ? `peer_${dbUser.id}` : (apiData?.id || defaultAtharvProfile.id),
-          user_id: dbUser ? dbUser.id : (apiData?.user_id || defaultAtharvProfile.user_id),
-          full_name: dbUser?.full_name || apiData?.full_name || defaultAtharvProfile.full_name,
-          email: dbUser?.email || apiData?.email || defaultAtharvProfile.email,
-          avatar_url: dbUser?.avatar_url || apiData?.avatar_url || defaultAtharvProfile.avatar_url,
-          institution_id: dbUser?.institution_id || apiData?.institution_id || defaultAtharvProfile.institution_id,
-          institution_name: apiData?.institution_name || defaultAtharvProfile.institution_name,
-          verification_status: dbUser?.verification_status || apiData?.verification_status || defaultAtharvProfile.verification_status,
-          bio: dbUser?.bio || apiData?.bio || defaultAtharvProfile.bio,
-          total_earnings: apiData?.total_earnings || defaultAtharvProfile.total_earnings,
-          available_balance: apiData?.available_balance || defaultAtharvProfile.available_balance,
-          learners_helped: apiData?.learners_helped || defaultAtharvProfile.learners_helped,
-          average_rating: apiData?.average_rating || defaultAtharvProfile.average_rating,
-          helpful_percentage: apiData?.helpful_percentage || defaultAtharvProfile.helpful_percentage
+          id: `peer_${dbUser?.id || cachedUser?.id || cleanId}`,
+          user_id: dbUser?.id || cachedUser?.id || cleanId,
+          full_name: finalFullName,
+          email: cachedUser?.email || dbUser?.email || apiData?.email || 'atharv@gmail.com',
+          avatar_url: finalAvatarUrl,
+          institution_id: cachedUser?.institution_id || dbUser?.institution_id || apiData?.institution_id || 'inst-mit-adt',
+          institution_name: apiData?.institution_name || 'MIT ADT University (Pune)',
+          verification_status: 'verified',
+          bio: finalBio,
+          total_earnings: apiData?.total_earnings || 1240,
+          available_balance: apiData?.available_balance || 890,
+          learners_helped: apiData?.learners_helped || 142,
+          average_rating: apiData?.average_rating || 5.0,
+          helpful_percentage: apiData?.helpful_percentage || 100
         };
 
         setPeer(mergedPeer);
@@ -161,7 +164,6 @@ export const PeerDetailPage: React.FC = () => {
 
       } catch (err) {
         console.error('Peer detail load error:', err);
-        setPeer(defaultAtharvProfile);
       } finally {
         setLoading(false);
       }
@@ -170,7 +172,7 @@ export const PeerDetailPage: React.FC = () => {
     loadPeerProfileFromDB();
   }, [peerId]);
 
-  if (loading) {
+  if (loading || !peer) {
     return (
       <div className="page-container py-20 text-center text-[#6d28d9] font-bold text-sm">
         <p className="animate-pulse">Loading peer profile from database...</p>
@@ -178,7 +180,7 @@ export const PeerDetailPage: React.FC = () => {
     );
   }
 
-  const activePeer = peer || defaultAtharvProfile;
+  const activePeer = peer;
   const isOwner = currentUser.id === activePeer.user_id;
 
   const handlePayoutRequest = async (e: React.FormEvent) => {
