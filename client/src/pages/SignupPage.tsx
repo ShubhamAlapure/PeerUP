@@ -38,9 +38,9 @@ export const SignupPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      await signUp(email, password, fullName);
+      await signUp(email, password, fullName, signupRole);
       switchRole(signupRole);
-      // Redirect user to onboarding wizard pre-configured for their role
+      // Redirect user to 5-step onboarding wizard pre-configured for their role
       navigate(`/onboarding?role=${signupRole}`);
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please check your details.');
