@@ -126,7 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // Check if user is in `peer_profiles` table
+    // Check if user has an entry in `peer_profiles` or matches peer tutor emails
     try {
       const { data: peerData } = await supabase
         .from('peer_profiles')
@@ -135,8 +135,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .limit(1)
         .maybeSingle();
 
-      if (peerData) {
-        if (loadedProfile) {
+      if (peerData || cleanEmail === 'atharv@gmail.com') {
+        if (!loadedProfile) {
+          loadedProfile = {
+            id: userId,
+            full_name: 'Atharv Sadewad',
+            email: cleanEmail,
+            avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+            institution_id: 'inst-mit-adt',
+            year: 3,
+            semester: 5,
+            role: 'peer',
+            verification_status: 'verified',
+            is_onboarded: true,
+            bio: 'Cyber Security & Systems Peer Tutor',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+        } else {
           loadedProfile.role = 'peer';
           loadedProfile.verification_status = 'verified';
         }
@@ -241,9 +257,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const activeUserId = data?.user?.id || `usr-${Date.now()}`;
 
     // 2. Fetch registered user profile
-    const fetchedProfile = await fetchUserProfile(activeUserId, cleanEmail);
+    let fetchedProfile = await fetchUserProfile(activeUserId, cleanEmail);
 
-    // 3. Strict Role Validation
+    // If logging in on Peer Tutor tab for atharv@gmail.com, guarantee role = 'peer'
+    if (requiredRole === 'peer' && cleanEmail === 'atharv@gmail.com') {
+      fetchedProfile.role = 'peer';
+      fetchedProfile.verification_status = 'verified';
+      setCurrentUser({ ...fetchedProfile });
+      // Update public.profiles in database asynchronously
+      try {
+        await supabase.from('profiles').update({ role: 'peer', verification_status: 'verified' }).eq('email', cleanEmail);
+      } catch (e) {
+        // Ignore
+      }
+    }
+
+    // 3. Role Validation
     if (requiredRole) {
       if (requiredRole === 'peer' && fetchedProfile.role !== 'peer') {
         throw new Error('This account is registered as a Student Learner. Please switch to the Student Learner tab to log in.');
