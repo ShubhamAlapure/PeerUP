@@ -15,8 +15,8 @@ interface AuthContextType {
   updateProfileData: (data: Partial<UserProfile>) => Promise<any>;
 }
 
-const defaultStudentProfile: UserProfile = {
-  id: 'usr-rohit',
+const guestProfile: UserProfile = {
+  id: 'usr-guest',
   full_name: 'Rohit Verma',
   email: 'rohit.verma@mitadt.edu.in',
   avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
@@ -36,52 +36,33 @@ const defaultStudentProfile: UserProfile = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('peerup_user_profile');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return defaultStudentProfile;
-      }
-    }
-    return defaultStudentProfile;
-  });
-
-  const [session, setSession] = useState<any | null>(() => {
-    const savedSession = localStorage.getItem('peerup_session');
-    return savedSession ? JSON.parse(savedSession) : { user: { id: currentUser.id, email: currentUser.email } };
-  });
-
+  const [currentUser, setCurrentUser] = useState<UserProfile>(guestProfile);
+  const [session, setSession] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    localStorage.setItem('peerup_user_profile', JSON.stringify(currentUser));
-  }, [currentUser]);
-
-  useEffect(() => {
-    if (session) {
-      localStorage.setItem('peerup_session', JSON.stringify(session));
-    } else {
-      localStorage.removeItem('peerup_session');
-    }
-  }, [session]);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: supaSession } }) => {
-      if (supaSession?.user) {
-        setSession(supaSession);
-        fetchUserProfile(supaSession.user.id, supaSession.user.email || '');
+    // 1. Fetch current active session on app load
+    supabase.auth.getSession().then(({ data: { session: activeSession }, error }) => {
+      if (activeSession?.user && !error) {
+        setSession(activeSession);
+        fetchUserProfile(activeSession.user.id, activeSession.user.email || '');
       } else {
+        setSession(null);
         setLoading(false);
       }
-    }).catch(() => setLoading(false));
+    }).catch(() => {
+      setSession(null);
+      setLoading(false);
+    });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, supaSession) => {
-      if (supaSession?.user) {
-        setSession(supaSession);
-        fetchUserProfile(supaSession.user.id, supaSession.user.email || '');
+    // 2. Auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, activeSession) => {
+      if (activeSession?.user) {
+        setSession(activeSession);
+        await fetchUserProfile(activeSession.user.id, activeSession.user.email || '');
       } else {
+        setSession(null);
+        setCurrentUser(guestProfile);
         setLoading(false);
       }
     });
@@ -100,55 +81,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data && !error) {
         setCurrentUser(data as UserProfile);
       } else {
-        setCurrentUser(prev => ({ ...prev, id: userId, email }));
+        // Fallback user state with actual registered email
+        setCurrentUser(prev => ({
+          ...prev,
+          id: userId,
+          email,
+          full_name: email.split('@')[0]
+        }));
       }
     } catch (err) {
-      console.warn('Supabase profile fetch fallback:', err);
+      console.error('Error fetching profile from Supabase:', err);
     } finally {
       setLoading(false);
     }
   };
 
   const switchRole = (newRole: UserRole) => {
-    setCurrentUser((prev: UserProfile) => {
-      const updated = {
-        ...prev,
-        role: newRole,
-        verification_status: newRole === 'peer' ? (prev.verification_status === 'unverified' ? 'pending' : prev.verification_status) : prev.verification_status
-      };
-      localStorage.setItem('peerup_user_profile', JSON.stringify(updated));
-      return updated;
-    });
+    setCurrentUser((prev: UserProfile) => ({
+      ...prev,
+      role: newRole,
+      verification_status: newRole === 'peer' ? (prev.verification_status === 'unverified' ? 'pending' : prev.verification_status) : prev.verification_status
+    }));
   };
 
+  // STRICT SIGN UP
   const signUp = async (email: string, password: string, fullName: string, role: UserRole = 'student') => {
-    let authUserId = `user-${Date.now()}`;
-    let supaSuccess = false;
-
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName
-          }
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          role: role
         }
-      });
-
-      if (!error && data?.user) {
-        authUserId = data.user.id;
-        supaSuccess = true;
       }
-    } catch (supaErr) {
-      console.warn('Supabase auth signup notice:', supaErr);
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (!data.user) {
+      throw new Error('Registration failed. Please enter a valid email address.');
     }
 
     const newProfile: UserProfile = {
-      id: authUserId,
+      id: data.user.id,
       full_name: fullName,
-      email,
-      avatar_url: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80`,
+      email: data.user.email || email,
+      avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
       role: role,
       verification_status: role === 'peer' ? 'pending' : 'unverified',
       is_onboarded: false,
@@ -156,102 +137,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updated_at: new Date().toISOString()
     };
 
-    setCurrentUser(newProfile);
-    const newSess = { user: { id: authUserId, email, full_name: fullName } };
-    setSession(newSess);
-    localStorage.setItem('peerup_user_profile', JSON.stringify(newProfile));
-    localStorage.setItem('peerup_session', JSON.stringify(newSess));
-
-    // Direct insertion into Supabase `public.profiles` table
+    // Insert into Supabase `public.profiles`
     try {
-      const { error: insertError } = await supabase
-        .from('profiles')
-        .upsert([newProfile], { onConflict: 'id' });
-
-      if (insertError) {
-        console.warn('Supabase profiles RLS notice (Run RLS query in SQL editor):', insertError.message);
-      }
-    } catch (e) {
-      console.warn('Background Supabase sync notice:', e);
+      await supabase.from('profiles').upsert([newProfile], { onConflict: 'id' });
+    } catch (dbErr) {
+      console.warn('Profile DB insert warning:', dbErr);
     }
 
-    return { user: newProfile, supaSuccess };
+    setCurrentUser(newProfile);
+    setSession(data.session || { user: data.user });
+    return data;
   };
 
+  // STRICT SIGN IN (Throws error on invalid credentials like huihi.@in)
   const signIn = async (email: string, password: string) => {
-    let supaSuccess = false;
-    let loggedInId = `user-${Date.now()}`;
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
 
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (!error && data?.user) {
-        loggedInId = data.user.id;
-        supaSuccess = true;
-      }
-    } catch (err) {
-      console.warn('Supabase auth signin notice:', err);
+    if (error) {
+      throw new Error(error.message || 'Invalid email or password credentials.');
     }
 
-    const existingProfile = localStorage.getItem('peerup_user_profile');
-    let profileToUse: UserProfile;
-
-    if (existingProfile) {
-      profileToUse = { ...JSON.parse(existingProfile), email };
-    } else {
-      profileToUse = {
-        ...defaultStudentProfile,
-        id: loggedInId,
-        email,
-        full_name: email.split('@')[0].replace('.', ' ')
-      };
+    if (!data.user) {
+      throw new Error('Unable to log in. Please check your email and password.');
     }
 
-    setCurrentUser(profileToUse);
-    const activeSession = { user: { id: profileToUse.id, email } };
-    setSession(activeSession);
-    localStorage.setItem('peerup_user_profile', JSON.stringify(profileToUse));
-    localStorage.setItem('peerup_session', JSON.stringify(activeSession));
-
-    return { user: profileToUse, supaSuccess };
+    setSession(data.session);
+    await fetchUserProfile(data.user.id, data.user.email || email);
+    return data;
   };
 
   const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (e) {
-      // Ignore
-    }
-    localStorage.removeItem('peerup_session');
+    await supabase.auth.signOut();
     setSession(null);
-    setCurrentUser(defaultStudentProfile);
+    setCurrentUser(guestProfile);
   };
 
   const resetPassword = async (email: string) => {
-    try {
-      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`
-      });
-      if (error) throw error;
-      return data;
-    } catch (e) {
-      return { success: true };
-    }
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`
+    });
+    if (error) throw new Error(error.message);
+    return data;
   };
 
   const updateProfileData = async (data: Partial<UserProfile>) => {
     const updated = { ...currentUser, ...data, updated_at: new Date().toISOString() };
     setCurrentUser(updated);
-    localStorage.setItem('peerup_user_profile', JSON.stringify(updated));
 
     if (session?.user) {
       try {
         await supabase.from('profiles').upsert(updated);
       } catch (e) {
-        // Ignore background sync errors
+        console.warn('Profile update warning:', e);
       }
     }
     return updated;
