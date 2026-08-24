@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:ital,wght@0,600;0,700;0,800;1,700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --violet-primary: #6d28d9;
+  --violet-primary-hover: #5b21b6;
+  --violet-dark-heading: #2e1065;
+  --violet-light-bg: #f5f3ff;
+  --violet-border: #ddd6fe;
+
+  --page-bg: #f8f6ff;
+  --card-bg: #ffffff;
+
+  --text-main: #2e1065;
+  --text-body: #334155;
+  --text-muted: #64748b;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--page-bg);
+  color: var(--text-main);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Page Container (Ensures NO content ever touches left edge) */
+.page-container {
+  max-width: 80rem; /* 1280px */
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .page-container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+/* Pure White & Violet Buttons */
+.btn-violet-primary {
+  background-color: #6d28d9;
+  color: #ffffff;
+  font-weight: 700;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(109, 40, 217, 0.25);
+}
+
+.btn-violet-primary:hover {
+  background-color: #5b21b6;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(109, 40, 217, 0.35);
+}
+
+.btn-violet-secondary {
+  background-color: #f5f3ff;
+  color: #6d28d9;
+  font-weight: 700;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid #ddd6fe;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.btn-violet-secondary:hover {
+  background-color: #ede9fe;
+  color: #5b21b6;
+}
+
+.btn-violet-outline {
+  background-color: #ffffff;
+  color: #2e1065;
+  font-weight: 700;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e9d5ff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.btn-violet-outline:hover {
+  background-color: #f5f3ff;
+  border-color: #c084fc;
+}
+
+/* Card Styling - Pure White Card with Violet Accents */
+.violet-card {
+  background: #ffffff;
+  border: 1px solid #e9d5ff;
+  border-radius: 1rem;
+  box-shadow: 0 4px 16px rgba(109, 40, 217, 0.05);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.violet-card:hover {
+  box-shadow: 0 12px 30px rgba(109, 40, 217, 0.15);
+  transform: translateY(-2px);
+  border-color: #a855f7;
+}
+
+.violet-panel {
+  background: #ffffff;
+  border: 1px solid #e9d5ff;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(109, 40, 217, 0.04);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f5f3ff;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c084fc;
+  border-radius: 3px;
+}
