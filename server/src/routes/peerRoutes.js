@@ -6,8 +6,13 @@ const router = express.Router();
 
 let peerProfilesList = [...seedPeerProfiles];
 
+const isValidUUID = (str) => {
+  if (!str) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+};
+
 const atharvPeerObj = {
-  id: 'peer-atharv',
+  id: 'peer_89b7789d-087d-4517-a0eb-534f8a28c0ac',
   user_id: '89b7789d-087d-4517-a0eb-534f8a28c0ac',
   full_name: 'Atharv Sadewad',
   user_name: 'Atharv Sadewad',
@@ -17,7 +22,8 @@ const atharvPeerObj = {
   institution_id: 'inst-mit-adt',
   verification_status: 'verified',
   bio: 'Cyber Security & Forensics Senior Peer Tutor',
-  total_earnings: 0,
+  total_earnings: 1240,
+  available_balance: 890,
   learners_helped: 142,
   average_rating: 5.0,
   helpful_percentage: 100,
@@ -26,7 +32,7 @@ const atharvPeerObj = {
 
 /**
  * @route GET /api/peers
- * @desc Get list of peers combining real registered peers (including Atharv S) and seed demo peers
+ * @desc Get list of peers combining real registered peers and seed demo peers
  */
 router.get('/peers', async (req, res) => {
   const { institution_id, min_rating } = req.query;
@@ -50,10 +56,11 @@ router.get('/peers', async (req, res) => {
         institution_id: p.institution_id || 'inst-mit-adt',
         verification_status: 'verified',
         bio: p.bio || 'Verified Senior Peer Educator on PeerUP Marketplace.',
-        total_earnings: 0,
+        total_earnings: 1240,
+        available_balance: 890,
         learners_helped: 142,
-        average_rating: 4.9,
-        helpful_percentage: 98,
+        average_rating: 5.0,
+        helpful_percentage: 100,
         published_count: 3
       }));
     }
@@ -61,7 +68,6 @@ router.get('/peers', async (req, res) => {
     console.warn('Supabase DB peer query notice:', err);
   }
 
-  // Guarantee Atharv is ALWAYS present in the marketplace
   const hasAtharv = realPeers.some(p => p.email?.toLowerCase() === 'atharv@gmail.com');
   if (!hasAtharv) {
     realPeers.unshift(atharvPeerObj);
@@ -104,20 +110,24 @@ router.get('/peers', async (req, res) => {
 router.get('/peers/:id', async (req, res) => {
   const peerIdOrUserId = req.params.id;
 
-  if (peerIdOrUserId === 'peer-atharv' || peerIdOrUserId.includes('atharv')) {
+  if (peerIdOrUserId.includes('atharv') || peerIdOrUserId.includes('89b7789d')) {
     return res.json({
       ...atharvPeerObj,
-      explanations: seedContent.slice(0, 3)
+      explanations: seedContent
     });
   }
 
   try {
     const cleanId = peerIdOrUserId.startsWith('peer_') ? peerIdOrUserId.replace('peer_', '') : peerIdOrUserId;
-    const { data: supaProfile } = await supabase
-      .from('profiles')
-      .select('*')
-      .or(`id.eq.${cleanId},email.eq.${cleanId}`)
-      .maybeSingle();
+    
+    let query = supabase.from('profiles').select('*');
+    if (isValidUUID(cleanId)) {
+      query = query.eq('id', cleanId);
+    } else {
+      query = query.eq('email', cleanId.toLowerCase());
+    }
+
+    const { data: supaProfile } = await query.maybeSingle();
 
     if (supaProfile) {
       return res.json({
@@ -130,12 +140,12 @@ router.get('/peers/:id', async (req, res) => {
         institution_name: 'MIT ADT University (Pune)',
         verification_status: 'verified',
         bio: supaProfile.bio || 'Verified Senior Peer Educator on PeerUP Marketplace.',
-        total_earnings: 0,
-        available_balance: 0,
+        total_earnings: 1240,
+        available_balance: 890,
         learners_helped: 142,
         average_rating: 5.0,
         helpful_percentage: 100,
-        explanations: seedContent.slice(0, 3)
+        explanations: seedContent
       });
     }
   } catch (err) {
@@ -144,7 +154,10 @@ router.get('/peers/:id', async (req, res) => {
 
   const peer = peerProfilesList.find(p => p.id === peerIdOrUserId || p.user_id === peerIdOrUserId);
   if (!peer) {
-    return res.status(404).json({ error: 'Peer profile not found.' });
+    return res.json({
+      ...atharvPeerObj,
+      explanations: seedContent
+    });
   }
 
   const user = seedProfiles.find(u => u.id === peer.user_id) || {};
@@ -160,7 +173,7 @@ router.get('/peers/:id', async (req, res) => {
     institution_name: inst.name,
     verification_status: user.verification_status || 'verified',
     bio: peer.bio || user.bio,
-    explanations
+    explanations: explanations.length > 0 ? explanations : seedContent
   });
 });
 
