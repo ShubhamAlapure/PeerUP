@@ -100,6 +100,8 @@ export const OnboardingPage: React.FC = () => {
     const params = new URLSearchParams(location.search);
     if (params.get('role') === 'peer') {
       setIsPeer(true);
+    } else {
+      setIsPeer(false);
     }
   }, [location.search]);
 
@@ -129,7 +131,7 @@ export const OnboardingPage: React.FC = () => {
         role: isPeer ? 'peer' : 'student',
         verification_status: isPeer ? 'pending' : 'unverified',
         is_onboarded: true,
-        bio: peerBio
+        bio: isPeer ? peerBio : undefined
       });
       navigate('/dashboard');
     } catch (err) {
@@ -138,6 +140,8 @@ export const OnboardingPage: React.FC = () => {
       setSaving(false);
     }
   };
+
+  const totalSteps = isPeer ? 4 : 3;
 
   const filteredInstitutions = institutions.filter(i => 
     i.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -155,23 +159,23 @@ export const OnboardingPage: React.FC = () => {
                 {step}
               </div>
               <div>
-                <span className="block text-[10px] font-black text-[#6d28d9] uppercase tracking-wider">Step {step} of 4</span>
+                <span className="block text-[10px] font-black text-[#6d28d9] uppercase tracking-wider">Step {step} of {totalSteps}</span>
                 <h1 className="text-xl font-black text-[#2e1065]">
                   {step === 1 && 'Select Your Institution'}
                   {step === 2 && 'Select Department & Program'}
                   {step === 3 && 'Academic Year & Semester'}
-                  {step === 4 && (isPeer ? 'Peer Educator Verification Setup' : 'Become a Peer Educator')}
+                  {step === 4 && isPeer && 'Peer Educator Verification Setup'}
                 </h1>
               </div>
             </div>
-            <span className="text-xs font-bold text-slate-500">{Math.round((step / 4) * 100)}% Completed</span>
+            <span className="text-xs font-bold text-slate-500">{Math.round((step / totalSteps) * 100)}% Completed</span>
           </div>
 
           {/* Progress Bar */}
           <div className="w-full h-2 bg-purple-100 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-[#6d28d9] to-purple-500 transition-all duration-300"
-              style={{ width: `${(step / 4) * 100}%` }}
+              style={{ width: `${(step / totalSteps) * 100}%` }}
             ></div>
           </div>
         </div>
@@ -315,65 +319,63 @@ export const OnboardingPage: React.FC = () => {
                 <ArrowLeft className="w-4 h-4" />
                 <span>Back</span>
               </button>
-              <button onClick={() => setStep(4)} className="flex-1 btn-violet-primary py-3 justify-center text-xs font-extrabold">
-                <span>Next: Peer Educator Option</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
+
+              {isPeer ? (
+                <button onClick={() => setStep(4)} className="flex-1 btn-violet-primary py-3 justify-center text-xs font-extrabold">
+                  <span>Next: Peer Educator Verification</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={handleFinishOnboarding}
+                  disabled={saving}
+                  className="flex-1 btn-violet-primary py-3 justify-center text-xs font-extrabold"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>{saving ? 'Saving Profile...' : 'Complete Onboarding & Enter Dashboard'}</span>
+                </button>
+              )}
             </div>
           </div>
         )}
 
-        {/* Step 4: Become a Peer Tutor Option */}
-        {step === 4 && (
+        {/* Step 4: Become a Peer Educator Setup (Peer Educators Only) */}
+        {step === 4 && isPeer && (
           <div className="space-y-6">
             <div className="p-5 bg-purple-50 rounded-2xl border-2 border-purple-200 space-y-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#6d28d9] text-white flex items-center justify-center font-bold shadow-xs">
-                    <GraduationCap className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="font-black text-base text-[#2e1065]">Become a Verified Peer Educator</h3>
-                    <p className="text-xs text-slate-600 font-medium">Earn money sharing video explanations & assignment solutions</p>
-                  </div>
+              <div className="flex items-center gap-3 border-b border-purple-200 pb-3">
+                <div className="w-10 h-10 rounded-xl bg-[#6d28d9] text-white flex items-center justify-center font-bold shadow-xs">
+                  <GraduationCap className="w-6 h-6" />
                 </div>
-
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isPeer}
-                    onChange={(e) => setIsPeer(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#6d28d9]"></div>
-                </label>
+                <div>
+                  <h3 className="font-black text-base text-[#2e1065]">Verified Peer Educator Setup</h3>
+                  <p className="text-xs text-slate-600 font-medium">Earn money sharing video explanations & assignment solutions</p>
+                </div>
               </div>
 
-              {isPeer && (
-                <div className="space-y-3 pt-3 border-t border-purple-200">
-                  <div>
-                    <label className="block text-xs font-bold text-[#2e1065] mb-1">Tutor Bio & Subject Specialties</label>
-                    <textarea
-                      rows={3}
-                      value={peerBio}
-                      onChange={(e) => setPeerBio(e.target.value)}
-                      placeholder="Share your expertise in DBMS, OS, Java, or Math..."
-                      className="w-full p-3 bg-white border border-purple-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-[#2e1065] mb-1">Student ID Card / Proof URL</label>
-                    <input
-                      type="text"
-                      value={idCardUrl}
-                      onChange={(e) => setIdCardUrl(e.target.value)}
-                      className="w-full p-3 bg-white border border-purple-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none"
-                    />
-                    <span className="text-[10px] text-slate-500 font-bold">Verification takes ~24 hours by campus admin</span>
-                  </div>
+              <div className="space-y-3 pt-2">
+                <div>
+                  <label className="block text-xs font-bold text-[#2e1065] mb-1">Tutor Bio & Subject Specialties</label>
+                  <textarea
+                    rows={3}
+                    value={peerBio}
+                    onChange={(e) => setPeerBio(e.target.value)}
+                    placeholder="Share your expertise in DBMS, OS, Java, or Math..."
+                    className="w-full p-3 bg-white border border-purple-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none"
+                  />
                 </div>
-              )}
+
+                <div>
+                  <label className="block text-xs font-bold text-[#2e1065] mb-1">Student ID Card / Proof URL</label>
+                  <input
+                    type="text"
+                    value={idCardUrl}
+                    onChange={(e) => setIdCardUrl(e.target.value)}
+                    className="w-full p-3 bg-white border border-purple-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none"
+                  />
+                  <span className="text-[10px] text-slate-500 font-bold">Verification takes ~24 hours by campus admin</span>
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center gap-3">
