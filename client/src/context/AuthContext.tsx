@@ -33,6 +33,11 @@ const guestProfile: UserProfile = {
   updated_at: new Date().toISOString()
 };
 
+const isValidUUID = (str?: string) => {
+  if (!str) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -55,7 +60,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Sync current user state to local storage
   useEffect(() => {
     if (currentUser && currentUser.email && currentUser.id !== 'usr-guest') {
       localStorage.setItem('peerup_user_profile', JSON.stringify(currentUser));
@@ -93,13 +97,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  // Fetch profile by ID or Email from Supabase DB, fallback to email-keyed local storage
   const fetchUserProfile = async (userId: string, email: string) => {
     const cleanEmail = email.toLowerCase();
     let loadedProfile: UserProfile | null = null;
 
     try {
-      // 1. Try querying Supabase public.profiles table by email or ID
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -114,7 +116,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('Supabase DB fetch notice:', err);
     }
 
-    // 2. Check local storage by email if DB didn't return
     if (!loadedProfile && cleanEmail) {
       const savedByEmail = localStorage.getItem(`peerup_user_profile_${cleanEmail}`);
       if (savedByEmail) {
@@ -126,7 +127,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // 3. Set loaded profile or construct clean user profile (NEVER fallback to Rohit Verma for logged-in user!)
     if (loadedProfile) {
       setCurrentUser(loadedProfile);
     } else {
@@ -143,7 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: 'student',
         verification_status: 'unverified',
         is_onboarded: true,
-        bio: 'Student enrolled in Pune university course.',
+        bio: 'Enrolled student learner',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -194,7 +194,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       full_name: fullName,
       email: cleanEmail,
       avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-      institution_id: 'inst-mit-adt',
       year: 2,
       semester: 3,
       role: role,
@@ -205,7 +204,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updated_at: new Date().toISOString()
     };
 
-    // Save into Supabase `public.profiles`
     try {
       await supabase.from('profiles').upsert([newProfile], { onConflict: 'id' });
     } catch (dbErr) {
@@ -224,7 +222,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string) => {
     const cleanEmail = email.toLowerCase();
 
-    // 1. Authenticate with Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({
       email: cleanEmail,
       password
@@ -238,7 +235,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const activeSess = data?.session || { user: { id: activeUserId, email: cleanEmail } };
     setSession(activeSess);
 
-    // 2. Fetch and set updated user profile
     await fetchUserProfile(activeUserId, cleanEmail);
     return data;
   };
@@ -271,19 +267,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const cleanEmail = updated.email.toLowerCase();
       localStorage.setItem('peerup_user_profile', JSON.stringify(updated));
       localStorage.setItem(`peerup_user_profile_${cleanEmail}`, JSON.stringify(updated));
-    }
 
-    // Save update into Supabase public.profiles DB table
-    try {
-      const { error: supaErr } = await supabase
-        .from('profiles')
-        .upsert([updated], { onConflict: 'id' });
+      // Build clean payload for Supabase PostgreSQL (only valid UUIDs for UUID columns)
+      const dbPayload: any = {
+        full_name: updated.full_name,
+        avatar_url: updated.avatar_url,
+        year: Number(updated.year),
+        semester: Number(updated.semester),
+        bio: updated.bio,
+        updated_at: new Date().toISOString()
+      };
 
-      if (supaErr) {
-        console.warn('Supabase DB profile update notice:', supaErr.message);
+      if (isValidUUID(updated.institution_id)) {
+        dbPayload.institution_id = updated.institution_id;
       }
-    } catch (e) {
-      console.warn('Profile update error:', e);
+
+      // Update Supabase profiles table matching email OR id
+      try {
+        const { error: supaErr } = await supabase
+          .from('profiles')
+          .update(dbPayload)
+          .eq('email', cleanEmail);
+
+        if (supaErr) {
+          console.error('Supabase DB profile update error:', supaErr.message);
+        } else {
+          console.log('Successfully updated profile in Supabase DB for:', cleanEmail);
+        }
+      } catch (e) {
+        console.error('Profile update catch error:', e);
+      }
     }
 
     return updated;

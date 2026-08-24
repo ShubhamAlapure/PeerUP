@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getInstitutions } from '../services/api';
-import { supabase } from '../services/supabaseClient';
 import type { Institution } from '../types';
 import { User, CheckCircle2, Award, BookOpen, Clock, Building, Save, Camera, Check, AlertCircle } from 'lucide-react';
 
@@ -16,7 +15,7 @@ const avatarPresets = [
 export const ProfilePage: React.FC = () => {
   const { currentUser, updateProfileData } = useAuth();
   const [institutions, setInstitutions] = useState<Institution[]>([]);
-  const [isEditing, setIsEditing] = useState(true); // Open directly for quick editing
+  const [isEditing, setIsEditing] = useState(true);
   const [fullName, setFullName] = useState(currentUser.full_name);
   const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar_url || avatarPresets[0]);
   const [selectedInstId, setSelectedInstId] = useState(currentUser.institution_id || 'inst-mit-adt');
@@ -52,33 +51,14 @@ export const ProfilePage: React.FC = () => {
       setError(null);
       setSaveSuccess(false);
 
-      const updatedPayload = {
-        id: currentUser.id,
+      await updateProfileData({
         full_name: fullName,
-        email: currentUser.email,
         avatar_url: avatarUrl,
         institution_id: selectedInstId,
         year: Number(academicYear),
         semester: Number(semester),
-        bio,
-        updated_at: new Date().toISOString()
-      };
-
-      // 1. Update AuthContext state & local storage
-      await updateProfileData(updatedPayload);
-
-      // 2. Direct real-time Supabase Database upsert
-      try {
-        const { error: supaErr } = await supabase
-          .from('profiles')
-          .upsert([updatedPayload], { onConflict: 'id' });
-
-        if (supaErr) {
-          console.warn('Supabase DB profile update notice:', supaErr.message);
-        }
-      } catch (dbErr) {
-        console.warn('Background Supabase profile sync:', dbErr);
-      }
+        bio: bio
+      });
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 4000);
@@ -154,7 +134,7 @@ export const ProfilePage: React.FC = () => {
           </div>
         )}
 
-        {/* Profile Editing Form (Edits all fields in DB) */}
+        {/* Profile Editing Form */}
         <form onSubmit={handleSave} className="space-y-6 pt-6 border-t border-purple-200">
           <div className="space-y-3">
             <label className="block text-xs font-extrabold text-[#2e1065]">Select Profile Picture (PFP)</label>
@@ -250,7 +230,7 @@ export const ProfilePage: React.FC = () => {
               rows={3}
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              placeholder="e.g. Computer Science student passionate about DBMS, Algorithms, and Peer Teaching..."
+              placeholder="e.g. Cyber Security and Forensics..."
               className="w-full p-3 bg-[#f8f6ff] border border-purple-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-[#6d28d9]"
             />
           </div>
