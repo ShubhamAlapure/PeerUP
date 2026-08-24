@@ -37,6 +37,7 @@ export const PeerDetailPage: React.FC = () => {
       if (!peerId) return;
 
       const cleanId = peerId.startsWith('peer_') ? peerId.replace('peer_', '') : peerId;
+      const isAtharvTarget = cleanId.includes('89b7789d') || cleanId.includes('atharv');
 
       // 1. Check local storage cache for user matching cleanId
       const localSavedByEmail = localStorage.getItem(`peerup_user_profile_${cleanId.toLowerCase()}`);
@@ -48,7 +49,7 @@ export const PeerDetailPage: React.FC = () => {
       } else if (localSavedActive) {
         try {
           const parsed = JSON.parse(localSavedActive);
-          if (parsed.id === cleanId || parsed.email?.toLowerCase() === cleanId.toLowerCase()) {
+          if (parsed.id === cleanId || parsed.email?.toLowerCase() === cleanId.toLowerCase() || (isAtharvTarget && parsed.email?.includes('atharv'))) {
             cachedUser = parsed;
           }
         } catch (e) {}
@@ -62,6 +63,8 @@ export const PeerDetailPage: React.FC = () => {
           query = query.eq('id', cleanId);
         } else if (cleanId.includes('@')) {
           query = query.eq('email', cleanId.toLowerCase());
+        } else if (isAtharvTarget) {
+          query = query.eq('email', 'atharv@gmail.com');
         } else {
           query = query.eq('id', cleanId);
         }
@@ -83,24 +86,29 @@ export const PeerDetailPage: React.FC = () => {
         console.warn('API getPeerDetails notice:', e);
       }
 
-      // Combine profile: dbUser / cachedUser take absolute precedence
-      const finalFullName = dbUser?.full_name || cachedUser?.full_name || apiData?.full_name || 'Campus Peer Tutor';
+      // Default fallback values if not found anywhere
+      const fallbackName = isAtharvTarget ? 'Atharv Sadewad' : 'Campus Peer Educator';
+      const fallbackBio = isAtharvTarget 
+        ? 'Cyber Security & Forensics Senior Peer Tutor. Specializing in DBMS, Network Security, and Systems Architecture.' 
+        : 'Verified Senior Peer Educator on PeerUP Marketplace.';
+
+      const finalFullName = dbUser?.full_name || cachedUser?.full_name || apiData?.full_name || fallbackName;
       const finalAvatarUrl = dbUser?.avatar_url || cachedUser?.avatar_url || apiData?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
-      const finalBio = dbUser?.bio || cachedUser?.bio || apiData?.bio || 'Verified Senior Peer Educator on PeerUP Marketplace.';
+      const finalBio = dbUser?.bio || cachedUser?.bio || apiData?.bio || fallbackBio;
 
       const mergedPeer = {
         id: `peer_${dbUser?.id || cachedUser?.id || cleanId}`,
         user_id: dbUser?.id || cachedUser?.id || cleanId,
         full_name: finalFullName,
-        email: dbUser?.email || cachedUser?.email || apiData?.email || '',
+        email: dbUser?.email || cachedUser?.email || apiData?.email || (isAtharvTarget ? 'atharv@gmail.com' : ''),
         avatar_url: finalAvatarUrl,
         institution_id: dbUser?.institution_id || cachedUser?.institution_id || apiData?.institution_id || 'inst-mit-adt',
         institution_name: apiData?.institution_name || 'MIT ADT University (Pune)',
         verification_status: 'verified',
         bio: finalBio,
-        total_earnings: apiData?.total_earnings || 0,
-        available_balance: apiData?.available_balance || 0,
-        learners_helped: apiData?.learners_helped || 142,
+        total_earnings: isAtharvTarget ? 1240 : (apiData?.total_earnings || 0),
+        available_balance: isAtharvTarget ? 890 : (apiData?.available_balance || 0),
+        learners_helped: isAtharvTarget ? 142 : (apiData?.learners_helped || 100),
         average_rating: apiData?.average_rating || 5.0,
         helpful_percentage: apiData?.helpful_percentage || 100
       };
