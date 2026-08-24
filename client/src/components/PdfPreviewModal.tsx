@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AcademicIntegrityNotice } from './AcademicIntegrityNotice';
-import { FileText, Download, X, ExternalLink, ZoomIn, ZoomOut, Image as ImageIcon } from 'lucide-react';
+import { FileText, Download, X, ExternalLink, ZoomIn, ZoomOut, Image as ImageIcon, BookOpen, AlertCircle } from 'lucide-react';
 
 interface PdfPreviewProps {
   fileName: string;
@@ -10,17 +10,44 @@ interface PdfPreviewProps {
 
 export const PdfPreviewModal: React.FC<PdfPreviewProps> = ({ fileName, fileUrl, onClose }) => {
   const [zoom, setZoom] = useState<number>(100);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   const isImage = fileUrl.startsWith('data:image/') || 
                   /\.(png|jpg|jpeg|webp|gif|svg)(\?.*)?$/i.test(fileUrl) || 
                   /\.(png|jpg|jpeg|webp|gif|svg)(\?.*)?$/i.test(fileName);
 
-  const isBase64Pdf = fileUrl.startsWith('data:application/pdf');
+  const isBase64 = fileUrl.startsWith('data:');
+
+  useEffect(() => {
+    // If base64 data URL, convert to Blob URL for clean iframe/embed rendering without X-Frame restriction
+    if (isBase64 && !isImage) {
+      try {
+        const parts = fileUrl.split(';base64,');
+        if (parts.length === 2) {
+          const contentType = parts[0].replace('data:', '');
+          const raw = window.atob(parts[1]);
+          const rawLength = raw.length;
+          const uInt8Array = new Uint8Array(rawLength);
+          for (let i = 0; i < rawLength; ++i) {
+            uInt8Array[i] = raw.charCodeAt(i);
+          }
+          const blob = new Blob([uInt8Array], { type: contentType || 'application/pdf' });
+          const blobUrl = URL.createObjectURL(blob);
+          setPdfBlobUrl(blobUrl);
+        }
+      } catch (e) {
+        console.warn('Base64 blob conversion notice:', e);
+      }
+    }
+  }, [fileUrl, isBase64, isImage]);
+
+  const activeRenderUrl = pdfBlobUrl || fileUrl;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
       <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-5xl w-full h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-        {/* Top Navigation Header */}
+        {/* Top Header */}
         <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
@@ -29,7 +56,7 @@ export const PdfPreviewModal: React.FC<PdfPreviewProps> = ({ fileName, fileUrl, 
             <div>
               <h3 className="font-extrabold text-white text-sm line-clamp-1">{fileName}</h3>
               <p className="text-[11px] text-slate-400 font-medium">
-                {isImage ? 'Document Screenshot / Image Preview' : 'PDF Reference Document Interactive Reader'}
+                {isImage ? 'Document Screenshot Preview' : 'PDF Reference Document Reader'}
               </p>
             </div>
           </div>
@@ -55,17 +82,17 @@ export const PdfPreviewModal: React.FC<PdfPreviewProps> = ({ fileName, fileUrl, 
             </div>
 
             <a
-              href={fileUrl}
+              href={activeRenderUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-accent py-1.5 px-3 text-xs font-bold flex items-center gap-1.5"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Open Full Screen</span>
+              <span className="hidden sm:inline">Open in New Tab</span>
             </a>
 
             <a
-              href={fileUrl}
+              href={activeRenderUrl}
               download={fileName}
               className="btn-violet-primary py-1.5 px-3 text-xs font-bold flex items-center gap-1.5"
             >
@@ -84,33 +111,46 @@ export const PdfPreviewModal: React.FC<PdfPreviewProps> = ({ fileName, fileUrl, 
           <AcademicIntegrityNotice compact />
         </div>
 
-        {/* Document Render Canvas */}
+        {/* Document Rendering Canvas */}
         <div className="flex-1 bg-slate-950 flex items-center justify-center p-4 overflow-auto relative">
           {isImage ? (
             <div className="overflow-auto max-h-full max-w-full flex items-center justify-center">
               <img
-                src={fileUrl}
+                src={activeRenderUrl}
                 alt={fileName}
                 style={{ width: `${zoom}%` }}
                 className="max-w-none rounded-xl border border-slate-800 shadow-2xl object-contain transition-all"
               />
             </div>
-          ) : isBase64Pdf ? (
-            <iframe
-              src={fileUrl}
-              title={fileName}
-              style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
-              className="w-full h-full rounded-xl border border-slate-800 bg-white"
-            />
+          ) : loadError ? (
+            <div className="text-center p-8 bg-slate-900 border border-slate-800 rounded-2xl max-w-md space-y-4">
+              <AlertCircle className="w-12 h-12 text-amber-500 mx-auto" />
+              <h4 className="font-extrabold text-white text-base">{fileName}</h4>
+              <p className="text-xs text-slate-400">This document reference can be downloaded directly to view on your device.</p>
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <a
+                  href={activeRenderUrl}
+                  download={fileName}
+                  className="btn-violet-primary py-2 px-5 text-xs font-bold"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download PDF Document</span>
+                </a>
+              </div>
+            </div>
           ) : (
-            <iframe
-              src={fileUrl.startsWith('http') 
-                ? `https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true` 
-                : fileUrl}
-              title={fileName}
-              style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
-              className="w-full h-full rounded-xl border border-slate-800 bg-white"
-            />
+            <div className="w-full h-full flex flex-col items-center justify-center relative overflow-hidden">
+              <embed
+                src={activeRenderUrl}
+                type="application/pdf"
+                className="w-full h-full rounded-xl border border-slate-800 bg-white"
+                onError={() => setLoadError(true)}
+              />
+              <div className="absolute bottom-4 right-4 bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-xl border border-slate-700 text-xs font-bold text-slate-300 flex items-center gap-2 shadow-lg">
+                <BookOpen className="w-4 h-4 text-purple-400" />
+                <span>Interactive PDF Viewer</span>
+              </div>
+            </div>
           )}
         </div>
       </div>
