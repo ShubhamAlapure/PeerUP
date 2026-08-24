@@ -31,21 +31,21 @@ export function App() {
           <Navbar />
           <main className="flex-1">
             <Routes>
-              {/* Public Routes - Accessible to Guests */}
+              {/* Landing Page is Public */}
               <Route path="/" element={<LandingPage />} />
-              <Route path="/repository" element={<RepositoryPage />} />
-              <Route path="/institution/:id" element={<InstitutionDetailPage />} />
-              <Route path="/content/:id" element={<ContentDetailPage />} />
-              <Route path="/peers" element={<PeersPage />} />
-              <Route path="/peer/:id" element={<PeerDetailPage />} />
 
               {/* Guest Auth Pages */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-              {/* Protected Routes - Strictly Require Authentication */}
+              {/* ALL Features Strictly Require Auth -> Redirects Unauthenticated Guests to Login / Signup */}
               <Route path="/dashboard" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
+              <Route path="/repository" element={<ProtectedRoute><RepositoryPage /></ProtectedRoute>} />
+              <Route path="/peers" element={<ProtectedRoute><PeersPage /></ProtectedRoute>} />
+              <Route path="/peer/:id" element={<ProtectedRoute><PeerDetailPage /></ProtectedRoute>} />
+              <Route path="/institution/:id" element={<ProtectedRoute><InstitutionDetailPage /></ProtectedRoute>} />
+              <Route path="/content/:id" element={<ProtectedRoute><ContentDetailPage /></ProtectedRoute>} />
               <Route path="/create-explanation" element={<ProtectedRoute><CreateExplanationPage /></ProtectedRoute>} />
               <Route path="/requests" element={<ProtectedRoute><RequestsPage /></ProtectedRoute>} />
               <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />

@@ -6,9 +6,13 @@ import { PeerCard } from '../components/PeerCard';
 import { ContentCard } from '../components/ContentCard';
 import { AcademicIntegrityNotice } from '../components/AcademicIntegrityNotice';
 import { Search, Flame, ArrowRight, Clock, Award, BookOpen, Quote } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export const LandingPage: React.FC = () => {
+  const { session } = useAuth();
+  const navigate = useNavigate();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [peers, setPeers] = useState<PeerProfile[]>([]);
@@ -35,6 +39,14 @@ export const LandingPage: React.FC = () => {
     loadData();
   }, []);
 
+  const handleGuestInteraction = (targetPath: string) => {
+    if (!session) {
+      navigate('/login');
+    } else {
+      navigate(targetPath);
+    }
+  };
+
   const filteredInstitutions = institutions.filter(inst =>
     inst.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     inst.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -58,10 +70,10 @@ export const LandingPage: React.FC = () => {
             </p>
 
             <div className="flex flex-wrap items-center gap-4 pt-2">
-              <Link to="/repository" className="btn-violet-primary text-base">
+              <Link to={session ? "/repository" : "/login"} className="btn-violet-primary text-base">
                 <span>Explore courses</span>
               </Link>
-              <Link to="/peers" className="btn-violet-secondary bg-white/10 text-white border-white/30 hover:bg-white/20 text-base">
+              <Link to={session ? "/peers" : "/signup"} className="btn-violet-secondary bg-white/10 text-white border-white/30 hover:bg-white/20 text-base">
                 <span>Learn more</span>
               </Link>
             </div>
@@ -73,7 +85,10 @@ export const LandingPage: React.FC = () => {
 
           {/* Right Column Featured Cards Carousel */}
           <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="violet-card bg-white text-slate-900 p-5 space-y-3 border-t-4 border-t-[#6d28d9]">
+            <div
+              onClick={() => handleGuestInteraction('/institution/inst-mit-adt')}
+              className="violet-card bg-white text-slate-900 p-5 space-y-3 border-t-4 border-t-[#6d28d9] cursor-pointer hover:shadow-lg transition-all"
+            >
               <span className="text-xs font-bold text-purple-700 uppercase tracking-wider">MicroMasters</span>
               <div className="h-10 flex items-center">
                 <span className="font-extrabold text-sm text-[#2e1065] bg-purple-50 px-3 py-1.5 rounded-md border border-purple-200">
@@ -100,7 +115,10 @@ export const LandingPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="violet-card bg-white text-slate-900 p-5 space-y-3 border-t-4 border-t-[#d94d1a]">
+            <div
+              onClick={() => handleGuestInteraction('/institution/inst-coep')}
+              className="violet-card bg-white text-slate-900 p-5 space-y-3 border-t-4 border-t-[#d94d1a] cursor-pointer hover:shadow-lg transition-all"
+            >
               <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">Course</span>
               <div className="h-10 flex items-center">
                 <span className="font-extrabold text-sm text-[#2e1065] bg-purple-50 px-3 py-1.5 rounded-md border border-purple-200">
@@ -139,9 +157,9 @@ export const LandingPage: React.FC = () => {
 
           <div className="flex flex-wrap items-center justify-center gap-5 md:gap-8">
             {/* 1. MIT ADT University */}
-            <Link
-              to="/institution/inst-mit-adt"
-              className="p-3 bg-[#2e1065] hover:bg-[#3b0764] rounded-2xl border-2 border-[#6d28d9] shadow-md group transition-all flex items-center justify-center min-w-[190px]"
+            <div
+              onClick={() => handleGuestInteraction('/institution/inst-mit-adt')}
+              className="p-3 bg-[#2e1065] hover:bg-[#3b0764] rounded-2xl border-2 border-[#6d28d9] shadow-md group transition-all flex items-center justify-center min-w-[190px] cursor-pointer"
               title="MIT ADT University"
             >
               <img
@@ -149,10 +167,13 @@ export const LandingPage: React.FC = () => {
                 alt="MIT ADT University"
                 className="h-11 sm:h-13 object-contain group-hover:scale-105 transition-transform"
               />
-            </Link>
+            </div>
 
             {/* 2. Symbiosis International */}
-            <div className="p-3 bg-white rounded-2xl shadow-xs border border-purple-200 flex items-center justify-center min-w-[160px]">
+            <div
+              onClick={() => handleGuestInteraction('/institution/inst-symbiosis')}
+              className="p-3 bg-white rounded-2xl shadow-xs border border-purple-200 flex items-center justify-center min-w-[160px] cursor-pointer hover:border-purple-400"
+            >
               <img
                 src="/logos/symbiosis.png"
                 alt="Symbiosis International (Deemed University)"
@@ -161,7 +182,10 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* 3. MIT World Peace University (MIT-WPU) */}
-            <div className="p-3 bg-white rounded-2xl shadow-xs border border-purple-200 flex items-center justify-center min-w-[160px]">
+            <div
+              onClick={() => handleGuestInteraction('/institution/inst-mit-wpu')}
+              className="p-3 bg-white rounded-2xl shadow-xs border border-purple-200 flex items-center justify-center min-w-[160px] cursor-pointer hover:border-purple-400"
+            >
               <img
                 src="/logos/mit-wpu.png"
                 alt="MIT World Peace University Pune"
@@ -169,8 +193,12 @@ export const LandingPage: React.FC = () => {
               />
             </div>
 
-            {/* 4. D Y Patil International University (DYPU - Real Logo Upload) */}
-            <div className="p-3 bg-white rounded-2xl shadow-xs border border-purple-200 flex items-center justify-center max-w-[240px]" title="D Y Patil International University Akurdi Pune">
+            {/* 4. D Y Patil International University */}
+            <div
+              onClick={() => handleGuestInteraction('/institution/inst-dypu')}
+              className="p-3 bg-white rounded-2xl shadow-xs border border-purple-200 flex items-center justify-center max-w-[240px] cursor-pointer hover:border-purple-400"
+              title="D Y Patil International University Akurdi Pune"
+            >
               <img
                 src="/logos/dypu.png"
                 alt="D Y Patil International University Akurdi Pune"
@@ -179,7 +207,10 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* 5. Cummins College of Engineering */}
-            <div className="p-3 bg-white rounded-2xl shadow-xs border border-purple-200 flex items-center justify-center max-w-[260px]">
+            <div
+              onClick={() => handleGuestInteraction('/institution/inst-cummins')}
+              className="p-3 bg-white rounded-2xl shadow-xs border border-purple-200 flex items-center justify-center max-w-[260px] cursor-pointer hover:border-purple-400"
+            >
               <img
                 src="/logos/cummins.png"
                 alt="Cummins College of Engineering for Women, Pune"
@@ -188,9 +219,9 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* 6. COEP Technological University */}
-            <Link
-              to="/institution/inst-coep"
-              className="px-4 py-3 bg-[#f8f6ff] hover:bg-purple-100 rounded-2xl border border-purple-300 shadow-xs group transition-all flex items-center gap-3"
+            <div
+              onClick={() => handleGuestInteraction('/institution/inst-coep')}
+              className="px-4 py-3 bg-[#f8f6ff] hover:bg-purple-100 rounded-2xl border border-purple-300 shadow-xs group transition-all flex items-center gap-3 cursor-pointer"
             >
               <div className="w-9 h-9 rounded-xl bg-[#6d28d9] text-white flex items-center justify-center font-black text-xs shadow-xs group-hover:scale-105 transition-transform">
                 COEP
@@ -199,10 +230,13 @@ export const LandingPage: React.FC = () => {
                 <span className="block font-black text-xs text-[#2e1065] leading-tight">COEP TECH UNIV</span>
                 <span className="block text-[9px] font-bold text-[#6d28d9] uppercase">Pune</span>
               </div>
-            </Link>
+            </div>
 
             {/* 7. JSPM Pune */}
-            <div className="px-4 py-3 bg-[#f8f6ff] hover:bg-purple-100 rounded-2xl border border-purple-300 shadow-xs flex items-center gap-3">
+            <div
+              onClick={() => handleGuestInteraction('/institution/inst-jspm')}
+              className="px-4 py-3 bg-[#f8f6ff] hover:bg-purple-100 rounded-2xl border border-purple-300 shadow-xs flex items-center gap-3 cursor-pointer"
+            >
               <div className="w-9 h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center font-black text-xs shadow-xs">
                 JSPM
               </div>
@@ -232,7 +266,9 @@ export const LandingPage: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {featuredContent.map(item => (
-            <ContentCard key={item.id} content={item} />
+            <div key={item.id} onClick={() => handleGuestInteraction(`/content/${item.id}`)} className="cursor-pointer">
+              <ContentCard content={item} />
+            </div>
           ))}
         </div>
       </section>
@@ -251,7 +287,13 @@ export const LandingPage: React.FC = () => {
           {['Courses', 'Executive Education', 'Certificates', 'Master\'s Degrees', 'Bachelor\'s Degrees'].map(tab => (
             <button
               key={tab}
-              onClick={() => setActiveCategoryTab(tab)}
+              onClick={() => {
+                if (!session) {
+                  navigate('/login');
+                } else {
+                  setActiveCategoryTab(tab);
+                }
+              }}
               className={`px-4 py-2.5 transition-colors whitespace-nowrap ${
                 activeCategoryTab === tab
                   ? 'bg-[#6d28d9] text-white rounded-t-lg font-bold'
@@ -268,7 +310,13 @@ export const LandingPage: React.FC = () => {
           {['Featured', 'Computer Science', 'Business & Management', 'Economics & Finance', 'Data Analysis & Statistics', 'Social Sciences', 'Engineering'].map(pill => (
             <button
               key={pill}
-              onClick={() => setActiveSubjectFilter(pill)}
+              onClick={() => {
+                if (!session) {
+                  navigate('/login');
+                } else {
+                  setActiveSubjectFilter(pill);
+                }
+              }}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${
                 activeSubjectFilter === pill
                   ? 'bg-[#6d28d9] text-white border-[#6d28d9]'
@@ -288,14 +336,23 @@ export const LandingPage: React.FC = () => {
               type="text"
               placeholder="Search your institution by Name, City, or State (e.g. MIT ADT, COEP Pune, DYPU, Symbiosis, Cummins, JSPM)..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-transparent text-slate-900 placeholder-slate-400 text-sm focus:outline-none font-medium"
+              onClick={() => { if (!session) navigate('/login'); }}
+              onChange={(e) => {
+                if (!session) {
+                  navigate('/login');
+                } else {
+                  setSearchQuery(e.target.value);
+                }
+              }}
+              className="w-full bg-transparent text-slate-900 placeholder-slate-400 text-sm focus:outline-none font-medium cursor-pointer"
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {filteredInstitutions.map(inst => (
-              <InstitutionCard key={inst.id} institution={inst} />
+              <div key={inst.id} onClick={() => handleGuestInteraction(`/institution/${inst.id}`)} className="cursor-pointer">
+                <InstitutionCard institution={inst} />
+              </div>
             ))}
           </div>
         </div>
@@ -308,15 +365,17 @@ export const LandingPage: React.FC = () => {
             <span className="text-xs font-bold text-[#6d28d9] uppercase tracking-wider">Top Senior Tutors</span>
             <h2 className="text-2xl sm:text-3xl font-black text-[#2e1065]">Learn from Verified Peers</h2>
           </div>
-          <Link to="/peers" className="text-sm font-bold text-[#6d28d9] hover:underline flex items-center gap-1">
+          <button onClick={() => handleGuestInteraction('/peers')} className="text-sm font-bold text-[#6d28d9] hover:underline flex items-center gap-1">
             <span>View All Tutors</span>
             <ArrowRight className="w-4 h-4" />
-          </Link>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {peers.map(peer => (
-            <PeerCard key={peer.id} peer={peer} />
+            <div key={peer.id} onClick={() => handleGuestInteraction(`/peer/${peer.id}`)} className="cursor-pointer">
+              <PeerCard peer={peer} />
+            </div>
           ))}
         </div>
       </section>

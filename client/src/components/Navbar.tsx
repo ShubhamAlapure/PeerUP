@@ -1,15 +1,22 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { GraduationCap, Search, X, Sparkles, PlusCircle, LayoutDashboard, FolderKanban, Users, MessageSquarePlus, ShieldAlert, LogOut } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { currentUser, session, signOut, switchRole } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [showBanner, setShowBanner] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
   const isActive = (path: string) => location.pathname === path;
+
+  const handleSearchClick = () => {
+    if (!session) {
+      navigate('/login');
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-white text-[#2e1065] shadow-xs border-b border-purple-200">
@@ -44,17 +51,24 @@ export const Navbar: React.FC = () => {
           </div>
         </Link>
 
-        {/* Global Search Input */}
+        {/* Global Search Input (Redirects Guests to /login on Interaction) */}
         <div className="flex-1 max-w-md hidden sm:block">
           <div className="relative">
             <input
               type="text"
               placeholder="Search subjects, topics, or assignment references..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-4 pr-10 py-2.5 bg-slate-50 border border-purple-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#6d28d9] focus:ring-1 focus:ring-[#6d28d9] transition-all"
+              onClick={handleSearchClick}
+              onChange={(e) => {
+                if (!session) {
+                  navigate('/login');
+                } else {
+                  setSearchQuery(e.target.value);
+                }
+              }}
+              className="w-full pl-4 pr-10 py-2.5 bg-slate-50 border border-purple-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#6d28d9] focus:ring-1 focus:ring-[#6d28d9] transition-all cursor-pointer"
             />
-            <button className="absolute right-3 top-2.5 text-purple-600 hover:text-[#6d28d9]">
+            <button onClick={handleSearchClick} className="absolute right-3 top-2.5 text-purple-600 hover:text-[#6d28d9]">
               <Search className="w-4 h-4" />
             </button>
           </div>
@@ -63,7 +77,7 @@ export const Navbar: React.FC = () => {
         {/* Navigation Links */}
         <div className="flex items-center gap-4">
           <nav className="hidden lg:flex items-center gap-2">
-            {/* Dashboard Link - Strictly Visible ONLY When Logged In */}
+            {/* Dashboard Link - Only for Logged-in Users */}
             {session && (
               <Link
                 to="/dashboard"
@@ -76,8 +90,9 @@ export const Navbar: React.FC = () => {
               </Link>
             )}
 
+            {/* Free Repository - Navigates to /login if NOT logged in */}
             <Link
-              to="/repository"
+              to={session ? "/repository" : "/login"}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 isActive('/repository') ? 'bg-[#6d28d9] text-white shadow-md' : 'text-slate-700 hover:text-[#6d28d9] hover:bg-[#f5f3ff]'
               }`}
@@ -86,8 +101,9 @@ export const Navbar: React.FC = () => {
               Free Repository
             </Link>
 
+            {/* Verified Peers - Navigates to /login if NOT logged in */}
             <Link
-              to="/peers"
+              to={session ? "/peers" : "/login"}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 isActive('/peers') ? 'bg-[#6d28d9] text-white shadow-md' : 'text-slate-700 hover:text-[#6d28d9] hover:bg-[#f5f3ff]'
               }`}
@@ -160,7 +176,7 @@ export const Navbar: React.FC = () => {
             <span>Become a Peer</span>
           </Link>
 
-          {/* Logged In User Profile vs Guest Auth Buttons */}
+          {/* Auth Controls / User Profile */}
           {session ? (
             <div className="flex items-center gap-2 pl-2 border-l border-purple-200">
               <Link to="/profile" className="bg-[#f5f3ff] hover:bg-purple-100 border border-purple-200 rounded-xl px-3 py-1.5 flex items-center gap-2 transition-all">
