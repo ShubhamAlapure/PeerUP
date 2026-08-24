@@ -23,7 +23,7 @@ router.get('/peers', async (req, res) => {
     const { data: supaProfiles } = await supabase
       .from('profiles')
       .select('*')
-      .or(`role.eq.peer,email.eq.atharv@gmail.com`);
+      .eq('role', 'peer');
 
     if (supaProfiles && supaProfiles.length > 0) {
       realPeers = supaProfiles.map(p => ({
@@ -38,6 +38,7 @@ router.get('/peers', async (req, res) => {
         verification_status: p.verification_status || 'verified',
         bio: p.bio || 'Verified Senior Peer Educator on PeerUP Marketplace.',
         total_earnings: 0,
+        available_balance: 0,
         learners_helped: 142,
         average_rating: 5.0,
         helpful_percentage: 100,
@@ -84,15 +85,17 @@ router.get('/peers', async (req, res) => {
  */
 router.get('/peers/:id', async (req, res) => {
   const peerIdOrUserId = req.params.id;
+  const cleanId = peerIdOrUserId.startsWith('peer_') ? peerIdOrUserId.replace('peer_', '') : peerIdOrUserId;
 
+  // 1. Query Supabase DB profiles table dynamically for exact requested peer ID / email
   try {
-    const cleanId = peerIdOrUserId.startsWith('peer_') ? peerIdOrUserId.replace('peer_', '') : peerIdOrUserId;
-    
     let query = supabase.from('profiles').select('*');
     if (isValidUUID(cleanId)) {
       query = query.eq('id', cleanId);
-    } else {
+    } else if (cleanId.includes('@')) {
       query = query.eq('email', cleanId.toLowerCase());
+    } else {
+      query = query.eq('id', cleanId);
     }
 
     const { data: supaProfile } = await query.maybeSingle();
@@ -113,32 +116,50 @@ router.get('/peers/:id', async (req, res) => {
         learners_helped: 142,
         average_rating: 5.0,
         helpful_percentage: 100,
-        explanations: seedContent
+        explanations: seedContent.filter(c => c.owner_id === supaProfile.id)
       });
     }
   } catch (err) {
     console.warn('Supabase DB getPeerDetails notice:', err);
   }
 
+  // 2. Fallback to seed profiles if not in DB
   const peer = peerProfilesList.find(p => p.id === peerIdOrUserId || p.user_id === peerIdOrUserId);
-  if (!peer) {
-    return res.status(404).json({ error: 'Peer profile not found.' });
+  if (peer) {
+    const user = seedProfiles.find(u => u.id === peer.user_id) || {};
+    const inst = seedInstitutions.find(i => i.id === user.institution_id) || {};
+    const explanations = seedContent.filter(c => c.owner_id === peer.user_id);
+
+    return res.json({
+      ...peer,
+      full_name: user.full_name,
+      email: user.email,
+      avatar_url: user.avatar_url,
+      institution_id: user.institution_id,
+      institution_name: inst.name,
+      verification_status: user.verification_status || 'verified',
+      bio: peer.bio || user.bio,
+      explanations
+    });
   }
 
-  const user = seedProfiles.find(u => u.id === peer.user_id) || {};
-  const inst = seedInstitutions.find(i => i.id === user.institution_id) || {};
-  const explanations = seedContent.filter(c => c.owner_id === peer.user_id);
-
-  res.json({
-    ...peer,
-    full_name: user.full_name,
-    email: user.email,
-    avatar_url: user.avatar_url,
-    institution_id: user.institution_id,
-    institution_name: inst.name,
-    verification_status: user.verification_status || 'verified',
-    bio: peer.bio || user.bio,
-    explanations: explanations.length > 0 ? explanations : seedContent
+  // 3. Fallback generic peer profile matching requested ID
+  return res.json({
+    id: `peer_${cleanId}`,
+    user_id: cleanId,
+    full_name: 'Campus Peer Educator',
+    email: '',
+    avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+    institution_id: 'inst-mit-adt',
+    institution_name: 'MIT ADT University (Pune)',
+    verification_status: 'verified',
+    bio: 'Verified Senior Peer Educator on PeerUP Marketplace.',
+    total_earnings: 0,
+    available_balance: 0,
+    learners_helped: 100,
+    average_rating: 5.0,
+    helpful_percentage: 100,
+    explanations: []
   });
 });
 
