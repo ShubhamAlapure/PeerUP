@@ -63,15 +63,18 @@ export const Navbar: React.FC = () => {
         {/* Navigation Links */}
         <div className="flex items-center gap-4">
           <nav className="hidden lg:flex items-center gap-2">
-            <Link
-              to="/dashboard"
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                isActive('/dashboard') ? 'bg-[#6d28d9] text-white shadow-md' : 'text-slate-700 hover:text-[#6d28d9] hover:bg-[#f5f3ff]'
-              }`}
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              Dashboard
-            </Link>
+            {/* Dashboard Link - Strictly Visible ONLY When Logged In */}
+            {session && (
+              <Link
+                to="/dashboard"
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  isActive('/dashboard') ? 'bg-[#6d28d9] text-white shadow-md' : 'text-slate-700 hover:text-[#6d28d9] hover:bg-[#f5f3ff]'
+                }`}
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                Dashboard
+              </Link>
+            )}
 
             <Link
               to="/repository"
@@ -93,17 +96,19 @@ export const Navbar: React.FC = () => {
               Verified Peers
             </Link>
 
-            <Link
-              to="/requests"
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                isActive('/requests') ? 'bg-[#6d28d9] text-white shadow-md' : 'text-slate-700 hover:text-[#6d28d9] hover:bg-[#f5f3ff]'
-              }`}
-            >
-              <MessageSquarePlus className="w-4 h-4 text-amber-600" />
-              Requests
-            </Link>
+            {session && (
+              <Link
+                to="/requests"
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  isActive('/requests') ? 'bg-[#6d28d9] text-white shadow-md' : 'text-slate-700 hover:text-[#6d28d9] hover:bg-[#f5f3ff]'
+                }`}
+              >
+                <MessageSquarePlus className="w-4 h-4 text-amber-600" />
+                Requests
+              </Link>
+            )}
 
-            {currentUser.role === 'admin' && (
+            {session && currentUser.role === 'admin' && (
               <Link
                 to="/admin"
                 className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
@@ -116,40 +121,46 @@ export const Navbar: React.FC = () => {
             )}
           </nav>
 
-          {/* User Pill & Role Switcher */}
-          <div className="bg-[#f5f3ff] p-1 rounded-xl border border-purple-200 text-xs font-bold flex items-center">
-            <button
-              onClick={() => switchRole('student')}
-              className={`px-2.5 py-1 rounded-lg transition-all ${
-                currentUser.role === 'student' ? 'bg-[#6d28d9] text-white shadow-xs' : 'text-[#6d28d9] hover:text-[#5b21b6]'
-              }`}
-            >
-              Student
-            </button>
-            <button
-              onClick={() => switchRole('peer')}
-              className={`px-2.5 py-1 rounded-lg transition-all ${
-                currentUser.role === 'peer' ? 'bg-emerald-600 text-white shadow-xs' : 'text-[#6d28d9] hover:text-[#5b21b6]'
-              }`}
-            >
-              Peer
-            </button>
-            <button
-              onClick={() => switchRole('admin')}
-              className={`px-2.5 py-1 rounded-lg transition-all ${
-                currentUser.role === 'admin' ? 'bg-amber-600 text-white shadow-xs' : 'text-[#6d28d9] hover:text-[#5b21b6]'
-              }`}
-            >
-              Admin
-            </button>
-          </div>
+          {/* Role Switcher - Visible ONLY When Logged In */}
+          {session && (
+            <div className="bg-[#f5f3ff] p-1 rounded-xl border border-purple-200 text-xs font-bold flex items-center">
+              <button
+                onClick={() => switchRole('student')}
+                className={`px-2.5 py-1 rounded-lg transition-all ${
+                  currentUser.role === 'student' ? 'bg-[#6d28d9] text-white shadow-xs' : 'text-[#6d28d9] hover:text-[#5b21b6]'
+                }`}
+              >
+                Student
+              </button>
+              <button
+                onClick={() => switchRole('peer')}
+                className={`px-2.5 py-1 rounded-lg transition-all ${
+                  currentUser.role === 'peer' ? 'bg-emerald-600 text-white shadow-xs' : 'text-[#6d28d9] hover:text-[#5b21b6]'
+                }`}
+              >
+                Peer
+              </button>
+              <button
+                onClick={() => switchRole('admin')}
+                className={`px-2.5 py-1 rounded-lg transition-all ${
+                  currentUser.role === 'admin' ? 'bg-amber-600 text-white shadow-xs' : 'text-[#6d28d9] hover:text-[#5b21b6]'
+                }`}
+              >
+                Admin
+              </button>
+            </div>
+          )}
 
-          <Link to="/onboarding" className="btn-violet-primary text-xs py-2 px-3.5 hidden sm:inline-flex">
+          {/* Become a Peer Action Button */}
+          <Link
+            to={session ? "/create-explanation" : "/signup?role=peer"}
+            className="btn-violet-primary text-xs py-2 px-3.5 hidden sm:inline-flex"
+          >
             <PlusCircle className="w-4 h-4" />
             <span>Become a Peer</span>
           </Link>
 
-          {/* Auth Controls / User Profile */}
+          {/* Logged In User Profile vs Guest Auth Buttons */}
           {session ? (
             <div className="flex items-center gap-2 pl-2 border-l border-purple-200">
               <Link to="/profile" className="bg-[#f5f3ff] hover:bg-purple-100 border border-purple-200 rounded-xl px-3 py-1.5 flex items-center gap-2 transition-all">

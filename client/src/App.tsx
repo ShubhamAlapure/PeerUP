@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 // Pages
 import { LandingPage } from './pages/LandingPage';
@@ -30,23 +31,26 @@ export function App() {
           <Navbar />
           <main className="flex-1">
             <Routes>
+              {/* Public Routes - Accessible to Guests */}
               <Route path="/" element={<LandingPage />} />
-              <Route path="/dashboard" element={<StudentDashboard />} />
-              <Route path="/institution/:id" element={<InstitutionDetailPage />} />
               <Route path="/repository" element={<RepositoryPage />} />
+              <Route path="/institution/:id" element={<InstitutionDetailPage />} />
               <Route path="/content/:id" element={<ContentDetailPage />} />
               <Route path="/peers" element={<PeersPage />} />
               <Route path="/peer/:id" element={<PeerDetailPage />} />
-              <Route path="/create-explanation" element={<CreateExplanationPage />} />
-              <Route path="/requests" element={<RequestsPage />} />
-              <Route path="/admin" element={<AdminPage />} />
 
-              {/* Auth & Onboarding Routes */}
+              {/* Guest Auth Pages */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/onboarding" element={<OnboardingPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
+
+              {/* Protected Routes - Strictly Require Authentication */}
+              <Route path="/dashboard" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
+              <Route path="/create-explanation" element={<ProtectedRoute><CreateExplanationPage /></ProtectedRoute>} />
+              <Route path="/requests" element={<ProtectedRoute><RequestsPage /></ProtectedRoute>} />
+              <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
             </Routes>
           </main>
           <Footer />
