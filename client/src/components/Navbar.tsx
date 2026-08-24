@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { GraduationCap, Search, X, Sparkles, PlusCircle, LayoutDashboard, FolderKanban, Users, MessageSquarePlus, ShieldAlert, LogOut, Edit, ChevronDown } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
-  const { currentUser, session, signOut, switchRole } = useAuth();
+  const { currentUser, session, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [showBanner, setShowBanner] = useState(true);
@@ -148,36 +148,6 @@ export const Navbar: React.FC = () => {
               </Link>
             )}
           </nav>
-
-          {/* Role Switcher */}
-          {session && (
-            <div className="bg-[#f5f3ff] p-1 rounded-xl border border-purple-200 text-xs font-bold flex items-center">
-              <button
-                onClick={() => switchRole('student')}
-                className={`px-2.5 py-1 rounded-lg transition-all ${
-                  currentUser.role === 'student' ? 'bg-[#6d28d9] text-white shadow-xs' : 'text-[#6d28d9] hover:text-[#5b21b6]'
-                }`}
-              >
-                Student
-              </button>
-              <button
-                onClick={() => switchRole('peer')}
-                className={`px-2.5 py-1 rounded-lg transition-all ${
-                  currentUser.role === 'peer' ? 'bg-emerald-600 text-white shadow-xs' : 'text-[#6d28d9] hover:text-[#5b21b6]'
-                }`}
-              >
-                Peer
-              </button>
-              <button
-                onClick={() => switchRole('admin')}
-                className={`px-2.5 py-1 rounded-lg transition-all ${
-                  currentUser.role === 'admin' ? 'bg-amber-600 text-white shadow-xs' : 'text-[#6d28d9] hover:text-[#5b21b6]'
-                }`}
-              >
-                Admin
-              </button>
-            </div>
-          )}
 
           {/* Become a Peer Action Button */}
           <Link

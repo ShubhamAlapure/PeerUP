@@ -5,7 +5,7 @@ import { LogIn, Mail, Lock, AlertCircle, ArrowRight, GraduationCap, UserCheck, A
 import type { UserRole } from '../types';
 
 export const LoginPage: React.FC = () => {
-  const { signIn, switchRole } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
 
   const [loginRole, setLoginRole] = useState<UserRole>('student');
@@ -24,8 +24,7 @@ export const LoginPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      await signIn(email, password);
-      switchRole(loginRole);
+      await signIn(email, password, loginRole);
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Invalid email or password credentials.');
@@ -74,16 +73,20 @@ export const LoginPage: React.FC = () => {
           </button>
         </div>
 
-        {loginRole === 'peer' && (
-          <div className="p-3 bg-purple-50 border border-purple-200 text-[#2e1065] text-xs font-medium rounded-xl">
+        {loginRole === 'peer' ? (
+          <div className="p-3 bg-[#f8f6ff] border border-purple-200 text-[#2e1065] text-xs font-medium rounded-xl">
             <strong>Peer Educator Portal:</strong> Logging in as campus tutor to manage explanations & earnings.
+          </div>
+        ) : (
+          <div className="p-3 bg-[#f8f6ff] border border-purple-200 text-[#2e1065] text-xs font-medium rounded-xl">
+            <strong>Student Learner Portal:</strong> Logging in to access free repository & peer explanations.
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-xs font-extrabold text-[#2e1065] mb-1">
-              {loginRole === 'peer' ? 'Institutional / Tutor Email' : 'Student Email Address'}
+              {loginRole === 'peer' ? 'Peer Educator Email' : 'Student Email Address'}
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-purple-400 absolute left-3 top-3" />

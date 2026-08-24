@@ -5,7 +5,7 @@ import { UserPlus, Mail, Lock, User, AlertCircle, ArrowRight, GraduationCap, Use
 import type { UserRole } from '../types';
 
 export const SignupPage: React.FC = () => {
-  const { signUp, switchRole } = useAuth();
+  const { signUp } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -39,8 +39,6 @@ export const SignupPage: React.FC = () => {
       setLoading(true);
       setError(null);
       await signUp(email, password, fullName, signupRole);
-      switchRole(signupRole);
-      // Redirect user to 5-step onboarding wizard pre-configured for their role
       navigate(`/onboarding?role=${signupRole}`);
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please check your details.');
@@ -90,14 +88,14 @@ export const SignupPage: React.FC = () => {
         </div>
 
         {signupRole === 'peer' ? (
-          <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold rounded-xl space-y-1">
-            <p className="font-black text-sm text-emerald-800">Become a Campus Peer Educator 🎓</p>
-            <p className="text-[11px] font-medium text-emerald-700">
+          <div className="p-3 bg-[#f8f6ff] border border-purple-200 text-[#2e1065] text-xs font-medium rounded-xl space-y-1">
+            <p className="font-black text-sm text-[#2e1065]">Become a Campus Peer Educator 🎓</p>
+            <p className="text-[11px] font-medium text-slate-600">
               Share 10-min video explanations, upload reference solutions, and earn money directly to your UPI/bank account.
             </p>
           </div>
         ) : (
-          <div className="p-3 bg-purple-50 border border-purple-200 text-[#2e1065] text-xs font-medium rounded-xl">
+          <div className="p-3 bg-[#f8f6ff] border border-purple-200 text-[#2e1065] text-xs font-medium rounded-xl">
             <strong>Student Learner Account:</strong> Access free assignment repository, explore university course trees, and unlock senior peer explanations.
           </div>
         )}
@@ -111,7 +109,7 @@ export const SignupPage: React.FC = () => {
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Rohit Verma"
+                placeholder="Sahil Ghodke"
                 className="w-full pl-9 pr-3 py-2.5 bg-[#f8f6ff] border border-purple-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-[#6d28d9]"
               />
             </div>
@@ -119,7 +117,7 @@ export const SignupPage: React.FC = () => {
 
           <div>
             <label className="block text-xs font-extrabold text-[#2e1065] mb-1">
-              {signupRole === 'peer' ? 'Institutional Email (Required for Verification)' : 'University / Email Address'}
+              {signupRole === 'peer' ? 'Peer Educator Email (Required for Verification)' : 'University / Student Email Address'}
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-purple-400 absolute left-3 top-3" />

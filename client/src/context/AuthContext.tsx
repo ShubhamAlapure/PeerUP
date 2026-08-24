@@ -7,9 +7,8 @@ interface AuthContextType {
   session: any | null;
   loading: boolean;
   role: UserRole;
-  switchRole: (newRole: UserRole) => void;
   signUp: (email: string, password: string, fullName: string, role?: UserRole) => Promise<any>;
-  signIn: (email: string, password: string) => Promise<any>;
+  signIn: (email: string, password: string, requiredRole?: UserRole) => Promise<any>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<any>;
   updateProfileData: (data: Partial<UserProfile>) => Promise<any>;
@@ -97,7 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserProfile = async (userId: string, email: string) => {
+  const fetchUserProfile = async (userId: string, email: string): Promise<UserProfile> => {
     const cleanEmail = email.toLowerCase();
     let loadedProfile: UserProfile | null = null;
 
@@ -129,6 +128,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (loadedProfile) {
       setCurrentUser(loadedProfile);
+      setLoading(false);
+      return loadedProfile;
     } else {
       const defaultUser: UserProfile = {
         id: userId,
@@ -148,26 +149,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updated_at: new Date().toISOString()
       };
       setCurrentUser(defaultUser);
+      setLoading(false);
+      return defaultUser;
     }
-
-    setLoading(false);
-  };
-
-  const switchRole = (newRole: UserRole) => {
-    setCurrentUser((prev: UserProfile) => {
-      const updated = {
-        ...prev,
-        role: newRole,
-        verification_status: newRole === 'peer' ? (prev.verification_status === 'unverified' ? 'pending' : prev.verification_status) : prev.verification_status
-      };
-      if (updated.id !== 'usr-guest') {
-        localStorage.setItem('peerup_user_profile', JSON.stringify(updated));
-        if (updated.email) {
-          localStorage.setItem(`peerup_user_profile_${updated.email.toLowerCase()}`, JSON.stringify(updated));
-        }
-      }
-      return updated;
-    });
   };
 
   const signUp = async (email: string, password: string, fullName: string, role: UserRole = 'student') => {
@@ -219,9 +203,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return data;
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, requiredRole?: UserRole) => {
     const cleanEmail = email.toLowerCase();
 
+    // 1. Perform Supabase authentication
     const { data, error } = await supabase.auth.signInWithPassword({
       email: cleanEmail,
       password
@@ -232,10 +217,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const activeUserId = data?.user?.id || `usr-${Date.now()}`;
+
+    // 2. Fetch registered user profile
+    const fetchedProfile = await fetchUserProfile(activeUserId, cleanEmail);
+
+    // 3. Strict Role Validation: Reject Student credentials on Peer login and vice versa!
+    if (requiredRole) {
+      if (requiredRole === 'peer' && fetchedProfile.role !== 'peer') {
+        throw new Error('This account is registered as a Student Learner. Please switch to the Student Learner tab to log in.');
+      }
+      if (requiredRole === 'student' && fetchedProfile.role === 'peer') {
+        throw new Error('This account is registered as a Peer Educator. Please switch to the Peer Tutor tab to log in.');
+      }
+    }
+
     const activeSess = data?.session || { user: { id: activeUserId, email: cleanEmail } };
     setSession(activeSess);
-
-    await fetchUserProfile(activeUserId, cleanEmail);
     return data;
   };
 
@@ -268,7 +265,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('peerup_user_profile', JSON.stringify(updated));
       localStorage.setItem(`peerup_user_profile_${cleanEmail}`, JSON.stringify(updated));
 
-      // Build clean payload for Supabase PostgreSQL (only valid UUIDs for UUID columns)
       const dbPayload: any = {
         full_name: updated.full_name,
         avatar_url: updated.avatar_url,
@@ -282,7 +278,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         dbPayload.institution_id = updated.institution_id;
       }
 
-      // Update Supabase profiles table matching email OR id
       try {
         const { error: supaErr } = await supabase
           .from('profiles')
@@ -308,7 +303,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       session,
       loading,
       role: currentUser.role,
-      switchRole,
       signUp,
       signIn,
       signOut,
