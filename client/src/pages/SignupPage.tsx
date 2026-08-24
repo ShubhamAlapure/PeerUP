@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { UserPlus, Mail, Lock, User, AlertCircle, ArrowRight, GraduationCap, UserCheck, Award } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, AlertCircle, ArrowRight, UserCheck, Award } from 'lucide-react';
 import type { UserRole } from '../types';
 
 export const SignupPage: React.FC = () => {
@@ -51,9 +51,7 @@ export const SignupPage: React.FC = () => {
     <div className="page-container max-w-md py-16">
       <div className="violet-panel space-y-6 shadow-xl border-2 border-purple-200">
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-[#6d28d9] text-white flex items-center justify-center mx-auto shadow-md">
-            <GraduationCap className="w-7 h-7" />
-          </div>
+          <img src="/logo.png" alt="PeerUP Logo" className="h-20 w-auto mx-auto object-contain drop-shadow-md" />
           <h1 className="text-2xl font-black text-[#2e1065]">Create Account</h1>
           <p className="text-xs text-slate-600 font-medium">Join multi-institution peer learning marketplace</p>
         </div>

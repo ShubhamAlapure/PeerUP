@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getContentList, getAssignments } from '../services/api';
 import { supabase } from '../services/supabaseClient';
-import { GraduationCap, Search, X, Sparkles, PlusCircle, LayoutDashboard, FolderKanban, Users, MessageSquarePlus, ShieldAlert, LogOut, Edit, ChevronDown } from 'lucide-react';
+import { Search, X, Sparkles, PlusCircle, LayoutDashboard, FolderKanban, Users, MessageSquarePlus, ShieldAlert, LogOut, Edit, ChevronDown } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { currentUser, session, signOut } = useAuth();
@@ -102,15 +102,7 @@ export const Navbar: React.FC = () => {
       <div className="page-container h-20 flex items-center justify-between gap-4">
         {/* Brand Logo */}
         <Link to="/" className="flex items-center gap-3 group shrink-0">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#6d28d9] to-purple-500 text-white flex items-center justify-center font-bold shadow-md group-hover:scale-105 transition-transform">
-            <GraduationCap className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <span className="text-2xl font-black tracking-tight text-[#2e1065] font-sans">
-              Peer<span className="text-[#6d28d9]">UP</span>
-            </span>
-            <span className="block text-[10px] text-[#6d28d9] font-bold tracking-wider uppercase">Academic Marketplace</span>
-          </div>
+          <img src="/logo.png" alt="PeerUP Logo" className="h-12 w-auto object-contain group-hover:scale-105 transition-transform" />
         </Link>
 
         {/* Global Search Input */}

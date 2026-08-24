@@ -1,5 +1,5 @@
 import React from 'react';
-import { GraduationCap, ShieldCheck, Heart } from 'lucide-react';
+import { ShieldCheck, Heart } from 'lucide-react';
 import { AcademicIntegrityNotice } from './AcademicIntegrityNotice';
 
 export const Footer: React.FC = () => {
@@ -11,10 +11,7 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-[#6d28d9] flex items-center justify-center shadow-md">
-                <GraduationCap className="w-5 h-5 text-white" />
-              </div>
-              <span className="font-extrabold text-xl tracking-tight text-white">PeerUP</span>
+              <img src="/logo.png" alt="PeerUP Logo" className="h-10 w-auto bg-white/90 p-1.5 rounded-xl shadow-md object-contain" />
             </div>
             <p className="text-xs text-purple-200 leading-relaxed font-medium">
               The multi-institution peer learning platform connecting students with verified peer tutors, video explanations, and study resources.

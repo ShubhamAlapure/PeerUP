@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogIn, Mail, Lock, AlertCircle, ArrowRight, GraduationCap, UserCheck, Award } from 'lucide-react';
+import { LogIn, Mail, Lock, AlertCircle, ArrowRight, UserCheck, Award } from 'lucide-react';
 import type { UserRole } from '../types';
 
 export const LoginPage: React.FC = () => {
@@ -37,9 +37,7 @@ export const LoginPage: React.FC = () => {
     <div className="page-container max-w-md py-16">
       <div className="violet-panel space-y-6 shadow-xl border-2 border-purple-200">
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-[#6d28d9] text-white flex items-center justify-center mx-auto shadow-md">
-            <GraduationCap className="w-7 h-7" />
-          </div>
+          <img src="/logo.png" alt="PeerUP Logo" className="h-20 w-auto mx-auto object-contain drop-shadow-md" />
           <h1 className="text-2xl font-black text-[#2e1065]">Welcome Back to PeerUP</h1>
           <p className="text-xs text-slate-600 font-medium">Select your portal role to log in</p>
         </div>
