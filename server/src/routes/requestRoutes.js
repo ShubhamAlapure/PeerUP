@@ -5,6 +5,11 @@ import { supabase } from '../db/supabase.js';
 const router = express.Router();
 let requestStore = [...seedRequests];
 
+const isValidUUID = (str) => {
+  if (!str) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+};
+
 /**
  * @route GET /api/requests
  * @desc Get all topic explanation requests
@@ -36,7 +41,7 @@ router.get('/requests', async (req, res) => {
       ...reqItem,
       student_name: reqItem.student_name || student.full_name || 'Student Learner',
       student_avatar: reqItem.student_avatar || student.avatar_url,
-      institution_name: inst.name || 'MIT ADT University',
+      institution_name: inst.name || 'MIT ADT University (Pune)',
       subject_name: reqItem.subject_name || subj.name || 'General Computer Science',
       topic_name: reqItem.title || top.name
     };
@@ -63,55 +68,55 @@ router.get('/requests', async (req, res) => {
  * @desc Student creates a topic request sent to a peer
  */
 router.post('/requests/create', async (req, res) => {
-  const {
-    student_id,
-    requested_peer_id,
-    institution_id = 'inst-mit-adt',
-    subject_name,
-    title,
-    description,
-    budget = 50
-  } = req.body;
-
-  if (!student_id || !title || !description) {
-    return res.status(400).json({ error: 'Required fields missing: student_id, title, description.' });
-  }
-
-  const newRequest = {
-    id: `req_${Date.now()}`,
-    student_id,
-    requested_peer_id,
-    institution_id,
-    subject_name: subject_name || 'General Academic Request',
-    title,
-    description,
-    budget: Number(budget),
-    status: 'pending',
-    created_at: new Date().toISOString()
-  };
-
   try {
-    await supabase.from('requests').insert([{
+    const {
       student_id,
       requested_peer_id,
-      institution_id: isValidUUID(institution_id) ? institution_id : null,
+      institution_id = 'inst-mit-adt',
+      subject_name,
+      title,
+      description,
+      budget = 50
+    } = req.body;
+
+    if (!student_id || !title || !description) {
+      return res.status(400).json({ error: 'Required fields missing: student_id, title, description.' });
+    }
+
+    const newRequest = {
+      id: `req_${Date.now()}`,
+      student_id,
+      requested_peer_id,
+      institution_id,
       subject_name: subject_name || 'General Academic Request',
       title,
       description,
-      offered_bounty: Number(budget),
-      status: 'pending'
-    }]);
-  } catch (err) {
-    console.warn('Supabase request insert notice:', err.message);
+      budget: Number(budget),
+      status: 'pending',
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      await supabase.from('requests').insert([{
+        student_id: isValidUUID(student_id) ? student_id : null,
+        requested_peer_id: isValidUUID(requested_peer_id) ? requested_peer_id : null,
+        institution_id: isValidUUID(institution_id) ? institution_id : null,
+        subject_name: subject_name || 'General Academic Request',
+        title,
+        description,
+        offered_bounty: Number(budget),
+        status: 'pending'
+      }]);
+    } catch (err) {
+      console.warn('Supabase request insert notice:', err?.message || err);
+    }
+
+    requestStore.unshift(newRequest);
+    return res.status(201).json({ message: 'Topic request submitted successfully.', request: newRequest });
+  } catch (globalErr) {
+    console.error('Create request error:', globalErr);
+    return res.status(500).json({ error: 'Internal Server Error submitting topic request.' });
   }
-
-  requestStore.unshift(newRequest);
-  res.status(201).json({ message: 'Topic request submitted successfully.', request: newRequest });
 });
-
-const isValidUUID = (str) => {
-  if (!str) return false;
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-};
 
 export default router;
