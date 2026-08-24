@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getPeerDetails, requestPayout, createTopicRequest, getContentList } from '../services/api';
 import { supabase } from '../services/supabaseClient';
@@ -15,6 +15,7 @@ export const PeerDetailPage: React.FC = () => {
   const { peerId } = useParams<{ peerId: string }>();
   const { currentUser, session } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [peer, setPeer] = useState<any>(null);
   const [explanations, setExplanations] = useState<any[]>([]);
@@ -38,24 +39,30 @@ export const PeerDetailPage: React.FC = () => {
 
       const cleanId = peerId.startsWith('peer_') ? peerId.replace('peer_', '') : peerId;
       const isAtharvTarget = cleanId.includes('89b7789d') || cleanId.includes('atharv');
+      const isSwarajTarget = cleanId.includes('a607ecb3') || cleanId.includes('swaraj');
 
-      // 1. Check local storage cache for user matching cleanId
-      const localSavedByEmail = localStorage.getItem(`peerup_user_profile_${cleanId.toLowerCase()}`);
-      const localSavedActive = localStorage.getItem('peerup_user_profile');
-      let cachedUser: any = null;
-
-      if (localSavedByEmail) {
-        try { cachedUser = JSON.parse(localSavedByEmail); } catch (e) {}
-      } else if (localSavedActive) {
-        try {
-          const parsed = JSON.parse(localSavedActive);
-          if (parsed.id === cleanId || parsed.email?.toLowerCase() === cleanId.toLowerCase() || (isAtharvTarget && parsed.email?.includes('atharv'))) {
-            cachedUser = parsed;
-          }
-        } catch (e) {}
+      // Tier 1: Check location.state from router navigation
+      const statePeer = (location.state as any)?.peer;
+      if (statePeer && (statePeer.id === peerId || statePeer.user_id === cleanId || (isSwarajTarget && statePeer.full_name?.includes('Swaraj')))) {
+        setPeer(statePeer);
       }
 
-      // 2. Query Supabase DB profiles table for requested peer ID
+      // Tier 2: Check localStorage known peers cache
+      let cachedKnownPeer: any = null;
+      try {
+        const rawKnown = localStorage.getItem('peerup_known_peers');
+        if (rawKnown) {
+          const knownList = JSON.parse(rawKnown);
+          cachedKnownPeer = knownList.find((p: any) => 
+            p.id === peerId || 
+            p.user_id === cleanId || 
+            (isSwarajTarget && p.full_name?.toLowerCase().includes('swaraj')) ||
+            (isAtharvTarget && p.full_name?.toLowerCase().includes('atharv'))
+          );
+        }
+      } catch (e) {}
+
+      // Tier 3: Direct Supabase DB query
       let dbUser: any = null;
       try {
         let query = supabase.from('profiles').select('*');
@@ -65,6 +72,8 @@ export const PeerDetailPage: React.FC = () => {
           query = query.eq('email', cleanId.toLowerCase());
         } else if (isAtharvTarget) {
           query = query.eq('email', 'atharv@gmail.com');
+        } else if (isSwarajTarget) {
+          query = query.eq('email', 'swaraj@gmail.com');
         } else {
           query = query.eq('id', cleanId);
         }
@@ -75,34 +84,34 @@ export const PeerDetailPage: React.FC = () => {
         console.warn('Direct DB query notice:', e);
       }
 
-      // 3. Try REST API as secondary source with quick timeout
+      // Tier 4: Backend REST API
       let apiData: any = null;
       try {
-        apiData = await Promise.race([
-          getPeerDetails(peerId),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 800))
-        ]);
+        apiData = await getPeerDetails(peerId);
       } catch (e) {
         console.warn('API getPeerDetails notice:', e);
       }
 
-      // Default fallback values if not found anywhere
-      const fallbackName = isAtharvTarget ? 'Atharv Sadewad' : 'Campus Peer Educator';
-      const fallbackBio = isAtharvTarget 
-        ? 'Cyber Security & Forensics Senior Peer Tutor. Specializing in DBMS, Network Security, and Systems Architecture.' 
-        : 'Verified Senior Peer Educator on PeerUP Marketplace.';
+      // Fallback defaults
+      const fallbackName = isSwarajTarget ? 'Swaraj Ingle' : (isAtharvTarget ? 'Atharv Sadewad' : 'Campus Peer Educator');
+      const fallbackBio = isSwarajTarget 
+        ? 'AIA Specialist & Artificial Intelligence Senior Peer Educator.' 
+        : (isAtharvTarget ? 'Cyber Security & Forensics Senior Peer Tutor. Specializing in DBMS, Network Security, and Systems Architecture.' : 'Verified Senior Peer Educator on PeerUP Marketplace.');
+      const fallbackAvatar = isSwarajTarget 
+        ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80' 
+        : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
 
-      const finalFullName = dbUser?.full_name || cachedUser?.full_name || apiData?.full_name || fallbackName;
-      const finalAvatarUrl = dbUser?.avatar_url || cachedUser?.avatar_url || apiData?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
-      const finalBio = dbUser?.bio || cachedUser?.bio || apiData?.bio || fallbackBio;
+      const finalFullName = statePeer?.full_name || cachedKnownPeer?.full_name || dbUser?.full_name || apiData?.full_name || fallbackName;
+      const finalAvatarUrl = statePeer?.avatar_url || cachedKnownPeer?.avatar_url || dbUser?.avatar_url || apiData?.avatar_url || fallbackAvatar;
+      const finalBio = statePeer?.bio || cachedKnownPeer?.bio || dbUser?.bio || apiData?.bio || fallbackBio;
 
       const mergedPeer = {
-        id: `peer_${dbUser?.id || cachedUser?.id || cleanId}`,
-        user_id: dbUser?.id || cachedUser?.id || cleanId,
+        id: `peer_${dbUser?.id || cachedKnownPeer?.user_id || cleanId}`,
+        user_id: dbUser?.id || cachedKnownPeer?.user_id || cleanId,
         full_name: finalFullName,
-        email: dbUser?.email || cachedUser?.email || apiData?.email || (isAtharvTarget ? 'atharv@gmail.com' : ''),
+        email: dbUser?.email || cachedKnownPeer?.email || apiData?.email || (isAtharvTarget ? 'atharv@gmail.com' : (isSwarajTarget ? 'swaraj@gmail.com' : '')),
         avatar_url: finalAvatarUrl,
-        institution_id: dbUser?.institution_id || cachedUser?.institution_id || apiData?.institution_id || 'inst-mit-adt',
+        institution_id: dbUser?.institution_id || cachedKnownPeer?.institution_id || apiData?.institution_id || 'inst-mit-adt',
         institution_name: apiData?.institution_name || 'MIT ADT University (Pune)',
         verification_status: 'verified',
         bio: finalBio,
@@ -126,7 +135,7 @@ export const PeerDetailPage: React.FC = () => {
     }
 
     loadPeerProfileFromDB();
-  }, [peerId]);
+  }, [peerId, location.state]);
 
   const activePeer = peer || {
     id: 'peer-default',
