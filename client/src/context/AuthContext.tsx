@@ -55,9 +55,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Sync current user state to local storage
   useEffect(() => {
-    if (currentUser && currentUser.id !== 'usr-guest') {
+    if (currentUser && currentUser.email && currentUser.id !== 'usr-guest') {
       localStorage.setItem('peerup_user_profile', JSON.stringify(currentUser));
+      localStorage.setItem(`peerup_user_profile_${currentUser.email.toLowerCase()}`, JSON.stringify(currentUser));
     }
   }, [currentUser]);
 
@@ -91,29 +93,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
+  // Fetch profile by ID or Email from Supabase DB, fallback to email-keyed local storage
   const fetchUserProfile = async (userId: string, email: string) => {
+    const cleanEmail = email.toLowerCase();
+    let loadedProfile: UserProfile | null = null;
+
     try {
+      // 1. Try querying Supabase public.profiles table by email or ID
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
-        .single();
+        .or(`id.eq.${userId},email.eq.${cleanEmail}`)
+        .limit(1)
+        .maybeSingle();
 
       if (data && !error) {
-        setCurrentUser(data as UserProfile);
-      } else {
-        setCurrentUser(prev => ({
-          ...prev,
-          id: userId,
-          email,
-          full_name: prev.full_name || email.split('@')[0]
-        }));
+        loadedProfile = data as UserProfile;
       }
     } catch (err) {
-      console.error('Error fetching profile from Supabase:', err);
-    } finally {
-      setLoading(false);
+      console.warn('Supabase DB fetch notice:', err);
     }
+
+    // 2. Check local storage by email if DB didn't return
+    if (!loadedProfile && cleanEmail) {
+      const savedByEmail = localStorage.getItem(`peerup_user_profile_${cleanEmail}`);
+      if (savedByEmail) {
+        try {
+          loadedProfile = JSON.parse(savedByEmail);
+        } catch (e) {
+          // Ignore
+        }
+      }
+    }
+
+    // 3. Set loaded profile or construct clean user profile (NEVER fallback to Rohit Verma for logged-in user!)
+    if (loadedProfile) {
+      setCurrentUser(loadedProfile);
+    } else {
+      const defaultUser: UserProfile = {
+        id: userId,
+        full_name: email.split('@')[0].replace('.', ' '),
+        email: email,
+        avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+        institution_id: 'inst-mit-adt',
+        department_id: 'dept-cse',
+        program_id: 'prog-btech-cse',
+        year: 2,
+        semester: 3,
+        role: 'student',
+        verification_status: 'unverified',
+        is_onboarded: true,
+        bio: 'Student enrolled in Pune university course.',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      setCurrentUser(defaultUser);
+    }
+
+    setLoading(false);
   };
 
   const switchRole = (newRole: UserRole) => {
@@ -125,15 +162,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
       if (updated.id !== 'usr-guest') {
         localStorage.setItem('peerup_user_profile', JSON.stringify(updated));
+        if (updated.email) {
+          localStorage.setItem(`peerup_user_profile_${updated.email.toLowerCase()}`, JSON.stringify(updated));
+        }
       }
       return updated;
     });
   };
 
-  // SIGN UP: Auto-logs in user immediately
   const signUp = async (email: string, password: string, fullName: string, role: UserRole = 'student') => {
+    const cleanEmail = email.toLowerCase();
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: cleanEmail,
       password,
       options: {
         data: {
@@ -152,11 +192,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const newProfile: UserProfile = {
       id: userId,
       full_name: fullName,
-      email: email,
+      email: cleanEmail,
       avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+      institution_id: 'inst-mit-adt',
+      year: 2,
+      semester: 3,
       role: role,
       verification_status: role === 'peer' ? 'pending' : 'unverified',
       is_onboarded: false,
+      bio: 'Enrolled student learner',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -168,57 +212,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('Profile DB insert warning:', dbErr);
     }
 
-    const activeSession = { user: { id: userId, email } };
+    const activeSession = { user: { id: userId, email: cleanEmail } };
     setCurrentUser(newProfile);
     setSession(data.session || activeSession);
     localStorage.setItem('peerup_user_profile', JSON.stringify(newProfile));
+    localStorage.setItem(`peerup_user_profile_${cleanEmail}`, JSON.stringify(newProfile));
     localStorage.setItem('peerup_session', JSON.stringify(data.session || activeSession));
     return data;
   };
 
-  // SIGN IN: Handles Email Not Confirmed smoothly
   const signIn = async (email: string, password: string) => {
+    const cleanEmail = email.toLowerCase();
+
+    // 1. Authenticate with Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
+      email: cleanEmail,
       password
     });
 
-    if (error) {
-      // If error is Email Not Confirmed, allow login to their created profile
-      if (error.message.toLowerCase().includes('email not confirmed')) {
-        console.warn('Email not confirmed notice: Logging in to registered profile...');
-        
-        // Try fetching user from profiles table
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('email', email)
-          .single();
-
-        const profileToUse: UserProfile = prof || {
-          ...guestProfile,
-          id: `usr-${Date.now()}`,
-          email,
-          full_name: email.split('@')[0]
-        };
-
-        const localSession = { user: { id: profileToUse.id, email } };
-        setCurrentUser(profileToUse);
-        setSession(localSession);
-        localStorage.setItem('peerup_user_profile', JSON.stringify(profileToUse));
-        localStorage.setItem('peerup_session', JSON.stringify(localSession));
-        return { user: profileToUse };
-      }
-
+    if (error && !error.message.toLowerCase().includes('email not confirmed')) {
       throw new Error(error.message || 'Invalid email or password credentials.');
     }
 
-    if (!data.user) {
-      throw new Error('Unable to log in. Please check your email and password.');
-    }
+    const activeUserId = data?.user?.id || `usr-${Date.now()}`;
+    const activeSess = data?.session || { user: { id: activeUserId, email: cleanEmail } };
+    setSession(activeSess);
 
-    setSession(data.session);
-    await fetchUserProfile(data.user.id, data.user.email || email);
+    // 2. Fetch and set updated user profile
+    await fetchUserProfile(activeUserId, cleanEmail);
     return data;
   };
 
@@ -246,17 +267,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updated = { ...currentUser, ...data, updated_at: new Date().toISOString() };
     setCurrentUser(updated);
 
-    if (currentUser.id !== 'usr-guest') {
+    if (updated.email) {
+      const cleanEmail = updated.email.toLowerCase();
       localStorage.setItem('peerup_user_profile', JSON.stringify(updated));
+      localStorage.setItem(`peerup_user_profile_${cleanEmail}`, JSON.stringify(updated));
     }
 
-    if (session?.user) {
-      try {
-        await supabase.from('profiles').upsert(updated);
-      } catch (e) {
-        console.warn('Profile update warning:', e);
+    // Save update into Supabase public.profiles DB table
+    try {
+      const { error: supaErr } = await supabase
+        .from('profiles')
+        .upsert([updated], { onConflict: 'id' });
+
+      if (supaErr) {
+        console.warn('Supabase DB profile update notice:', supaErr.message);
       }
+    } catch (e) {
+      console.warn('Profile update error:', e);
     }
+
     return updated;
   };
 
