@@ -3,7 +3,76 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getInstitutions } from '../services/api';
 import type { Institution } from '../types';
-import { Building, CheckCircle2, ChevronRight, ArrowLeft, GraduationCap, ShieldCheck } from 'lucide-react';
+import { Building, CheckCircle2, ChevronRight, ArrowLeft, GraduationCap, ShieldCheck, Search } from 'lucide-react';
+
+const defaultInstitutionsList: any[] = [
+  {
+    id: 'inst-mit-adt',
+    name: 'MIT ADT University',
+    code: 'MIT-ADT',
+    city: 'Pune',
+    state: 'Maharashtra',
+    country: 'India',
+    type: 'university',
+    logo_url: 'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=200&q=80',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'inst-coep',
+    name: 'COEP Technological University',
+    code: 'COEP',
+    city: 'Pune',
+    state: 'Maharashtra',
+    country: 'India',
+    type: 'university',
+    logo_url: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=200&q=80',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'inst-symbiosis',
+    name: 'Symbiosis International University',
+    code: 'SIU',
+    city: 'Pune',
+    state: 'Maharashtra',
+    country: 'India',
+    type: 'university',
+    logo_url: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=200&q=80',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'inst-mit-wpu',
+    name: 'MIT World Peace University',
+    code: 'MIT-WPU',
+    city: 'Pune',
+    state: 'Maharashtra',
+    country: 'India',
+    type: 'university',
+    logo_url: 'https://images.unsplash.com/photo-1592280771190-3e2e4d571952?auto=format&fit=crop&w=200&q=80',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'inst-cummins',
+    name: 'Cummins College of Engineering',
+    code: 'CCOEW',
+    city: 'Pune',
+    state: 'Maharashtra',
+    country: 'India',
+    type: 'college',
+    logo_url: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=200&q=80',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'inst-dypu',
+    name: 'D Y Patil International University',
+    code: 'DYPIU',
+    city: 'Pune',
+    state: 'Maharashtra',
+    country: 'India',
+    type: 'university',
+    logo_url: 'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=200&q=80',
+    created_at: new Date().toISOString()
+  }
+];
 
 export const OnboardingPage: React.FC = () => {
   const { updateProfileData } = useAuth();
@@ -11,7 +80,8 @@ export const OnboardingPage: React.FC = () => {
   const location = useLocation();
 
   const [step, setStep] = useState(1);
-  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const [institutions, setInstitutions] = useState<Institution[]>(defaultInstitutionsList);
+  const [searchQuery, setSearchQuery] = useState('');
   const [_loadingInsts, setLoadingInsts] = useState(true);
 
   // Onboarding Form State
@@ -37,7 +107,9 @@ export const OnboardingPage: React.FC = () => {
     async function loadInstitutions() {
       try {
         const insts = await getInstitutions();
-        setInstitutions(insts);
+        if (insts && insts.length > 0) {
+          setInstitutions(insts);
+        }
       } catch (err) {
         console.error('Error loading institutions for onboarding:', err);
       } finally {
@@ -66,6 +138,11 @@ export const OnboardingPage: React.FC = () => {
       setSaving(false);
     }
   };
+
+  const filteredInstitutions = institutions.filter(i => 
+    i.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    i.city.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="page-container max-w-2xl py-12">
@@ -103,8 +180,21 @@ export const OnboardingPage: React.FC = () => {
         {step === 1 && (
           <div className="space-y-4">
             <p className="text-xs font-medium text-slate-600">Choose your university or engineering college in Pune & Maharashtra:</p>
-            <div className="space-y-3">
-              {institutions.map((inst) => (
+
+            {/* University Search Filter Bar */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search university or college name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-[#f8f6ff] border border-purple-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-[#6d28d9]"
+              />
+              <Search className="w-4 h-4 text-purple-400 absolute left-3.5 top-3" />
+            </div>
+
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+              {filteredInstitutions.map((inst) => (
                 <button
                   key={inst.id}
                   type="button"
@@ -128,6 +218,7 @@ export const OnboardingPage: React.FC = () => {
                 </button>
               ))}
             </div>
+
             <button onClick={() => setStep(2)} className="w-full btn-violet-primary py-3 justify-center text-xs font-extrabold">
               <span>Next: Department & Program</span>
               <ChevronRight className="w-4 h-4" />
