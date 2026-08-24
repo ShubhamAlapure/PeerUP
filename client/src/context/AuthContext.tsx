@@ -56,7 +56,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Sync to local storage for permanent session persistence
     localStorage.setItem('peerup_user_profile', JSON.stringify(currentUser));
   }, [currentUser]);
 
@@ -69,7 +68,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [session]);
 
   useEffect(() => {
-    // 1. Get initial Supabase session
     supabase.auth.getSession().then(({ data: { session: supaSession } }) => {
       if (supaSession?.user) {
         setSession(supaSession);
@@ -79,7 +77,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }).catch(() => setLoading(false));
 
-    // 2. Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, supaSession) => {
       if (supaSession?.user) {
         setSession(supaSession);
@@ -144,10 +141,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         supaSuccess = true;
       }
     } catch (supaErr) {
-      console.warn('Supabase auth signup notice (using bulletproof fallback session):', supaErr);
+      console.warn('Supabase auth signup notice:', supaErr);
     }
 
-    // Bulletproof Profile Construction (Guarantees Signup & Login Always Succeeds)
     const newProfile: UserProfile = {
       id: authUserId,
       full_name: fullName,
@@ -166,9 +162,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('peerup_user_profile', JSON.stringify(newProfile));
     localStorage.setItem('peerup_session', JSON.stringify(newSess));
 
-    // Try inserting into Supabase profiles asynchronously
+    // Direct insertion into Supabase `public.profiles` table
     try {
-      await supabase.from('profiles').upsert([newProfile]);
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .upsert([newProfile], { onConflict: 'id' });
+
+      if (insertError) {
+        console.warn('Supabase profiles RLS notice (Run RLS query in SQL editor):', insertError.message);
+      }
     } catch (e) {
       console.warn('Background Supabase sync notice:', e);
     }
@@ -191,10 +193,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         supaSuccess = true;
       }
     } catch (err) {
-      console.warn('Supabase auth signin notice (using fallback local authentication):', err);
+      console.warn('Supabase auth signin notice:', err);
     }
 
-    // Build or recover profile
     const existingProfile = localStorage.getItem('peerup_user_profile');
     let profileToUse: UserProfile;
 
