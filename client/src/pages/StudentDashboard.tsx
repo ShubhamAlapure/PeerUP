@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getContentList, getPeers, getInstitutions, getUserPurchases } from '../services/api';
+import { getContentList, getPeers, getInstitutions, getUserPurchases, getAssignments } from '../services/api';
 import { supabase } from '../services/supabaseClient';
 import type { ContentItem, PeerProfile, Institution } from '../types';
 import { ContentCard } from '../components/ContentCard';
@@ -78,6 +78,7 @@ export const StudentDashboard: React.FC = () => {
   const [recommendedContent, setRecommendedContent] = useState<ContentItem[]>([]);
   const [peers, setPeers] = useState<PeerProfile[]>(defaultFallbackPeers);
   const [purchases, setPurchases] = useState<any[]>([]);
+  const [freeResourceCount, setFreeResourceCount] = useState<number>(4);
   const [activeTab, setActiveTab] = useState<'recommended' | 'peers' | 'purchases'>('recommended');
   const [_loading, setLoading] = useState(true);
 
@@ -138,6 +139,25 @@ export const StudentDashboard: React.FC = () => {
 
         const prchs = await getUserPurchases(currentUser.id);
         setPurchases(prchs);
+
+        // Calculate free resource items count
+        let baseFreeCount = 4;
+        try {
+          const assns = await getAssignments({});
+          const freeCnts = cnts.filter((c: any) => c.is_free || c.price === 0 || c.content_type === 'pdf_explanation');
+          const uniqueFreeIds = new Set<string>();
+          [...assns, ...freeCnts].forEach(item => uniqueFreeIds.add(item.id));
+          baseFreeCount = Math.max(uniqueFreeIds.size, 4);
+        } catch (e) {}
+
+        let localUploads = 0;
+        try {
+          const raw = localStorage.getItem('peerup_user_uploaded_resources');
+          if (raw) localUploads = JSON.parse(raw).length;
+        } catch (e) {}
+
+        setFreeResourceCount(baseFreeCount + localUploads);
+
       } catch (err) {
         console.error('Dashboard load error:', err);
       } finally {
@@ -226,16 +246,18 @@ export const StudentDashboard: React.FC = () => {
       <div className="space-y-4">
         <h2 className="text-xl font-black text-[#2e1065] tracking-tight">Learning Hub & Quick Actions</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {/* Action 1 */}
+          {/* Action 1: Free Repository (N) */}
           <Link to="/repository" className="violet-card p-5 bg-white hover:border-[#6d28d9] transition-all group flex flex-col justify-between space-y-4">
             <div className="flex items-start justify-between">
               <div className="w-12 h-12 rounded-2xl bg-purple-50 text-[#6d28d9] flex items-center justify-center font-extrabold group-hover:scale-110 transition-transform">
                 <FolderKanban className="w-6 h-6" />
               </div>
-              <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">FREE</span>
+              <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">FREE ({freeResourceCount})</span>
             </div>
             <div>
-              <h3 className="font-extrabold text-base text-[#2e1065] group-hover:text-[#6d28d9] transition-colors">Free Repository</h3>
+              <h3 className="font-extrabold text-base text-[#2e1065] group-hover:text-[#6d28d9] transition-colors">
+                Free Repository ({freeResourceCount})
+              </h3>
               <p className="text-xs text-slate-500 font-medium line-clamp-2 mt-1">Previous year worked solutions & study guides.</p>
             </div>
             <div className="flex items-center gap-1 text-xs font-bold text-[#6d28d9] pt-2">

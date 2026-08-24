@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getContentList, getAssignments } from '../services/api';
 import { GraduationCap, Search, X, Sparkles, PlusCircle, LayoutDashboard, FolderKanban, Users, MessageSquarePlus, ShieldAlert, LogOut, Edit, ChevronDown } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -10,6 +11,7 @@ export const Navbar: React.FC = () => {
   const [showBanner, setShowBanner] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [freeCount, setFreeCount] = useState<number>(4);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const isActive = (path: string) => location.pathname === path;
@@ -19,6 +21,37 @@ export const Navbar: React.FC = () => {
       navigate('/login');
     }
   };
+
+  useEffect(() => {
+    async function loadFreeCount() {
+      try {
+        let baseCount = 4;
+        try {
+          const assns = await getAssignments({});
+          const cnts = await getContentList({});
+          const freeCnts = cnts.filter((c: any) => c.is_free || c.price === 0 || c.content_type === 'pdf_explanation');
+          
+          const uniqueIds = new Set<string>();
+          [...assns, ...freeCnts].forEach(item => uniqueIds.add(item.id));
+          baseCount = Math.max(uniqueIds.size, 4);
+        } catch (e) {}
+
+        let localCount = 0;
+        try {
+          const raw = localStorage.getItem('peerup_user_uploaded_resources');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            localCount = parsed.length;
+          }
+        } catch (e) {}
+
+        setFreeCount(baseCount + localCount);
+      } catch (e) {
+        console.warn('Free count error:', e);
+      }
+    }
+    loadFreeCount();
+  }, [location.pathname]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -102,7 +135,7 @@ export const Navbar: React.FC = () => {
               </Link>
             )}
 
-            {/* Free Repository */}
+            {/* Free Repository with Item Count */}
             <Link
               to={session ? "/repository" : "/login"}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
@@ -110,7 +143,7 @@ export const Navbar: React.FC = () => {
               }`}
             >
               <FolderKanban className="w-4 h-4 text-emerald-600" />
-              Free Repository
+              <span>Free Repository ({freeCount})</span>
             </Link>
 
             {/* Verified Peers */}
