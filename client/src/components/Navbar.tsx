@@ -99,10 +99,10 @@ export const Navbar: React.FC = () => {
       )}
 
       {/* Main Pure White Navbar Bar */}
-      <div className="page-container h-20 flex items-center justify-between gap-4">
+      <div className="page-container h-24 flex items-center justify-between gap-4 py-2">
         {/* Brand Logo */}
         <Link to="/" className="flex items-center gap-3 group shrink-0">
-          <img src="/logo.png" alt="PeerUP Logo" className="h-12 w-auto object-contain group-hover:scale-105 transition-transform" />
+          <img src="/logo.png" alt="PeerUP Logo" className="h-20 sm:h-22 w-auto object-contain scale-110 origin-left group-hover:scale-115 transition-transform" />
         </Link>
 
         {/* Global Search Input */}
