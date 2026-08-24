@@ -57,15 +57,6 @@ export const LandingPage: React.FC = () => {
     <div className="space-y-16 pb-20 bg-[#f8f6ff]">
       {/* 1. Hero Section - Deep Violet Gradient */}
       <section className="bg-gradient-to-r from-[#2e1065] via-[#3b0764] to-[#4c1d95] text-white py-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-        {/* Faint Academic Owl Reading Books Watermark Backdrop */}
-        <div className="absolute -left-10 sm:left-[-2%] lg:left-[2%] -top-8 sm:-top-16 w-[520px] sm:w-[640px] lg:w-[720px] h-[520px] sm:h-[640px] lg:h-[720px] pointer-events-none opacity-25 select-none z-0">
-          <img
-            src="/owl-hero.png"
-            alt="Academic Owl Reading Illustration"
-            className="w-full h-full object-contain filter brightness-110 contrast-110"
-          />
-        </div>
-
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
           {/* Left Column Text & CTAs */}
           <div className="lg:col-span-6 space-y-6">
