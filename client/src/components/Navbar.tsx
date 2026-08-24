@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { GraduationCap, Search, X, Sparkles, PlusCircle, LayoutDashboard, FolderKanban, Users, MessageSquarePlus, ShieldAlert, LogOut } from 'lucide-react';
+import { GraduationCap, Search, X, Sparkles, PlusCircle, LayoutDashboard, FolderKanban, Users, MessageSquarePlus, ShieldAlert, LogOut, Edit, ChevronDown } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { currentUser, session, signOut, switchRole } = useAuth();
@@ -9,6 +9,8 @@ export const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const [showBanner, setShowBanner] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -17,6 +19,16 @@ export const Navbar: React.FC = () => {
       navigate('/login');
     }
   };
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowUserDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 bg-white text-[#2e1065] shadow-xs border-b border-purple-200">
@@ -51,7 +63,7 @@ export const Navbar: React.FC = () => {
           </div>
         </Link>
 
-        {/* Global Search Input (Redirects Guests to /login on Interaction) */}
+        {/* Global Search Input */}
         <div className="flex-1 max-w-md hidden sm:block">
           <div className="relative">
             <input
@@ -77,7 +89,7 @@ export const Navbar: React.FC = () => {
         {/* Navigation Links */}
         <div className="flex items-center gap-4">
           <nav className="hidden lg:flex items-center gap-2">
-            {/* Dashboard Link - Only for Logged-in Users */}
+            {/* Dashboard Link */}
             {session && (
               <Link
                 to="/dashboard"
@@ -90,7 +102,7 @@ export const Navbar: React.FC = () => {
               </Link>
             )}
 
-            {/* Free Repository - Navigates to /login if NOT logged in */}
+            {/* Free Repository */}
             <Link
               to={session ? "/repository" : "/login"}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
@@ -101,7 +113,7 @@ export const Navbar: React.FC = () => {
               Free Repository
             </Link>
 
-            {/* Verified Peers - Navigates to /login if NOT logged in */}
+            {/* Verified Peers */}
             <Link
               to={session ? "/peers" : "/login"}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
@@ -137,7 +149,7 @@ export const Navbar: React.FC = () => {
             )}
           </nav>
 
-          {/* Role Switcher - Visible ONLY When Logged In */}
+          {/* Role Switcher */}
           {session && (
             <div className="bg-[#f5f3ff] p-1 rounded-xl border border-purple-200 text-xs font-bold flex items-center">
               <button
@@ -176,27 +188,59 @@ export const Navbar: React.FC = () => {
             <span>Become a Peer</span>
           </Link>
 
-          {/* Auth Controls / User Profile */}
+          {/* Logged In User Profile Menu with Interactive Dropdown (Option 1: Edit Profile, Option 2: Log Out) */}
           {session ? (
-            <div className="flex items-center gap-2 pl-2 border-l border-purple-200">
-              <Link to="/profile" className="bg-[#f5f3ff] hover:bg-purple-100 border border-purple-200 rounded-xl px-3 py-1.5 flex items-center gap-2 transition-all">
+            <div className="relative pl-2 border-l border-purple-200" ref={dropdownRef}>
+              <button
+                onClick={() => setShowUserDropdown(prev => !prev)}
+                className="bg-[#f5f3ff] hover:bg-purple-100 border border-purple-200 rounded-xl px-3 py-1.5 flex items-center gap-2 transition-all cursor-pointer"
+              >
                 <img
-                  src={currentUser.avatar_url}
+                  src={currentUser.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
                   alt={currentUser.full_name}
                   className="w-7 h-7 rounded-full object-cover border border-[#6d28d9]"
                 />
                 <div className="text-left hidden xl:block">
-                  <span className="block text-xs font-extrabold text-[#2e1065] leading-none">{currentUser.full_name}</span>
+                  <span className="block text-xs font-extrabold text-[#2e1065] leading-none">{currentUser.full_name.split(' ')[0]}</span>
                   <span className="text-[10px] text-[#6d28d9] capitalize leading-none font-bold">{currentUser.role}</span>
                 </div>
-              </Link>
-              <button
-                onClick={() => signOut()}
-                className="p-2 text-slate-500 hover:text-red-600 rounded-xl hover:bg-red-50 transition-all"
-                title="Log out"
-              >
-                <LogOut className="w-4 h-4" />
+                <ChevronDown className={`w-3.5 h-3.5 text-[#6d28d9] transition-transform ${showUserDropdown ? 'rotate-180' : ''}`} />
               </button>
+
+              {/* User Dropdown Menu Modal */}
+              {showUserDropdown && (
+                <div className="absolute right-0 mt-2 w-56 bg-white border-2 border-purple-200 rounded-2xl shadow-xl p-2 space-y-1 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="p-2.5 bg-[#f8f6ff] rounded-xl border border-purple-100">
+                    <span className="block text-xs font-black text-[#2e1065]">{currentUser.full_name}</span>
+                    <span className="block text-[10px] text-slate-500 truncate font-medium">{currentUser.email}</span>
+                  </div>
+
+                  {/* Option 1: Edit Profile */}
+                  <button
+                    onClick={() => {
+                      setShowUserDropdown(false);
+                      navigate('/profile');
+                    }}
+                    className="w-full p-2.5 text-left text-xs font-bold text-slate-700 hover:text-[#6d28d9] hover:bg-[#f5f3ff] rounded-xl flex items-center gap-2 transition-colors"
+                  >
+                    <Edit className="w-4 h-4 text-[#6d28d9]" />
+                    <span>Edit Profile & PFP</span>
+                  </button>
+
+                  {/* Option 2: Log Out */}
+                  <button
+                    onClick={() => {
+                      setShowUserDropdown(false);
+                      signOut();
+                      navigate('/login');
+                    }}
+                    className="w-full p-2.5 text-left text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl flex items-center gap-2 transition-colors border-t border-purple-100 pt-2"
+                  >
+                    <LogOut className="w-4 h-4 text-red-600" />
+                    <span>Log Out</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-2 pl-2 border-l border-purple-200">
