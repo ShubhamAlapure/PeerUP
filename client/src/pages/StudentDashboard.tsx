@@ -78,7 +78,7 @@ export const StudentDashboard: React.FC = () => {
   const [recommendedContent, setRecommendedContent] = useState<ContentItem[]>([]);
   const [peers, setPeers] = useState<PeerProfile[]>(defaultFallbackPeers);
   const [purchases, setPurchases] = useState<any[]>([]);
-  const [freeResourceCount, setFreeResourceCount] = useState<number>(4);
+  const [freeResourceCount, setFreeResourceCount] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<'recommended' | 'peers' | 'purchases'>('recommended');
   const [_loading, setLoading] = useState(true);
 
@@ -140,23 +140,39 @@ export const StudentDashboard: React.FC = () => {
         const prchs = await getUserPurchases(currentUser.id);
         setPurchases(prchs);
 
-        // Calculate free resource items count
-        let baseFreeCount = 4;
+        // Calculate EXACT free resource items count dynamically without any minimum floor
+        const uniqueFreeIds = new Set<string>();
+
         try {
           const assns = await getAssignments({});
-          const freeCnts = cnts.filter((c: any) => c.is_free || c.price === 0 || c.content_type === 'pdf_explanation');
-          const uniqueFreeIds = new Set<string>();
-          [...assns, ...freeCnts].forEach(item => uniqueFreeIds.add(item.id));
-          baseFreeCount = Math.max(uniqueFreeIds.size, 4);
+          assns.forEach(item => uniqueFreeIds.add(item.id));
         } catch (e) {}
 
-        let localUploads = 0;
+        try {
+          const freeCnts = cnts.filter((c: any) => c.is_free || c.price === 0 || c.content_type === 'pdf_explanation');
+          freeCnts.forEach(item => uniqueFreeIds.add(item.id));
+        } catch (e) {}
+
+        try {
+          const { data: dbExps } = await supabase
+            .from('explanations')
+            .select('*')
+            .or('is_free.eq.true,price.eq.0,content_type.eq.pdf_explanation');
+
+          if (dbExps) {
+            dbExps.forEach(item => uniqueFreeIds.add(item.id));
+          }
+        } catch (e) {}
+
         try {
           const raw = localStorage.getItem('peerup_user_uploaded_resources');
-          if (raw) localUploads = JSON.parse(raw).length;
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            parsed.forEach((item: any) => uniqueFreeIds.add(item.id));
+          }
         } catch (e) {}
 
-        setFreeResourceCount(baseFreeCount + localUploads);
+        setFreeResourceCount(uniqueFreeIds.size);
 
       } catch (err) {
         console.error('Dashboard load error:', err);
