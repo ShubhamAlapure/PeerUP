@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getPeerDetails, requestPayout, createTopicRequest } from '../services/api';
+import { getPeerDetails, requestPayout, createTopicRequest, getContentList } from '../services/api';
 import { supabase } from '../services/supabaseClient';
 import { ContentCard } from '../components/ContentCard';
 import { Star, CheckCircle2, Users, ThumbsUp, Wallet, ArrowUpRight, AlertCircle, CheckCircle, Send, MessageSquarePlus, BookOpen } from 'lucide-react';
@@ -11,17 +11,34 @@ const isValidUUID = (str?: string) => {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 };
 
+const defaultAtharvProfile = {
+  id: 'peer_89b7789d-087d-4517-a0eb-534f8a28c0ac',
+  user_id: '89b7789d-087d-4517-a0eb-534f8a28c0ac',
+  full_name: 'Atharv Sadewad',
+  email: 'atharv@gmail.com',
+  avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+  institution_id: 'inst-mit-adt',
+  institution_name: 'MIT ADT University (Pune)',
+  verification_status: 'verified',
+  bio: 'Cyber Security & Forensics Senior Peer Tutor. Specializing in DBMS, Network Security, and Systems Architecture.',
+  total_earnings: 1240,
+  available_balance: 890,
+  learners_helped: 142,
+  average_rating: 5.0,
+  helpful_percentage: 100
+};
+
 export const PeerDetailPage: React.FC = () => {
   const { peerId } = useParams<{ peerId: string }>();
   const { currentUser, session } = useAuth();
   const navigate = useNavigate();
 
-  const [peer, setPeer] = useState<any>(null);
+  const [peer, setPeer] = useState<any>(defaultAtharvProfile);
   const [explanations, setExplanations] = useState<any[]>([]);
   const [payoutAmount, setPayoutAmount] = useState<string>('250');
   const [payoutMsg, setPayoutMsg] = useState<string | null>(null);
   const [payoutErr, setPayoutErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
 
   // Topic Request Form State
   const [showReqForm, setShowReqForm] = useState(false);
@@ -35,144 +52,140 @@ export const PeerDetailPage: React.FC = () => {
 
   useEffect(() => {
     async function loadPeerProfileFromDB() {
-      if (!peerId) {
-        setLoading(false);
-        return;
+      if (!peerId) return;
+
+      const cleanId = peerId.startsWith('peer_') ? peerId.replace('peer_', '') : peerId;
+
+      // 1. Check local storage cache by email / ID for instant updated profile match
+      const localSavedByEmail = localStorage.getItem(`peerup_user_profile_${cleanId.toLowerCase()}`);
+      const localSavedActive = localStorage.getItem('peerup_user_profile');
+      let cachedUser: any = null;
+
+      if (localSavedByEmail) {
+        try { cachedUser = JSON.parse(localSavedByEmail); } catch (e) {}
+      } else if (localSavedActive) {
+        try {
+          const parsed = JSON.parse(localSavedActive);
+          if (parsed.id === cleanId || parsed.email?.toLowerCase() === cleanId.toLowerCase() || cleanId.includes('89b7789d')) {
+            cachedUser = parsed;
+          }
+        } catch (e) {}
       }
 
+      // 2. Query Supabase DB profiles table for latest real peer data asynchronously
+      let dbUser: any = null;
       try {
-        setLoading(true);
-        const cleanId = peerId.startsWith('peer_') ? peerId.replace('peer_', '') : peerId;
-
-        // 1. Check local storage cache by email / ID for instant updated profile match
-        const localSavedByEmail = localStorage.getItem(`peerup_user_profile_${cleanId.toLowerCase()}`);
-        const localSavedActive = localStorage.getItem('peerup_user_profile');
-        let cachedUser: any = null;
-
-        if (localSavedByEmail) {
-          try { cachedUser = JSON.parse(localSavedByEmail); } catch (e) {}
-        } else if (localSavedActive) {
-          try {
-            const parsed = JSON.parse(localSavedActive);
-            if (parsed.id === cleanId || parsed.email?.toLowerCase() === cleanId.toLowerCase() || cleanId.includes('89b7789d')) {
-              cachedUser = parsed;
-            }
-          } catch (e) {}
-        }
-
-        // 2. Query Supabase DB profiles table for latest real peer data
-        let dbUser: any = null;
-        try {
-          let query = supabase.from('profiles').select('*');
-          if (isValidUUID(cleanId)) {
-            query = query.eq('id', cleanId);
-          } else if (cleanId.includes('@')) {
-            query = query.eq('email', cleanId.toLowerCase());
-          } else {
-            query = query.eq('email', 'atharv@gmail.com');
-          }
-
-          const { data } = await query.maybeSingle();
-          if (data) dbUser = data;
-        } catch (e) {
-          console.warn('Direct DB query notice:', e);
-        }
-
-        // 3. Try REST API as secondary source
-        let apiData: any = null;
-        try {
-          apiData = await getPeerDetails(peerId);
-        } catch (e) {
-          console.warn('API getPeerDetails notice:', e);
-        }
-
-        // Merge: cachedUser and dbUser take absolute precedence over hardcoded values!
-        const finalFullName = cachedUser?.full_name || dbUser?.full_name || apiData?.full_name || apiData?.user_name || 'Atharv S';
-        const finalAvatarUrl = cachedUser?.avatar_url || dbUser?.avatar_url || apiData?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
-        const finalBio = cachedUser?.bio || dbUser?.bio || apiData?.bio || 'Cyber Security & Systems Senior Peer Tutor';
-
-        const mergedPeer = {
-          id: `peer_${dbUser?.id || cachedUser?.id || cleanId}`,
-          user_id: dbUser?.id || cachedUser?.id || cleanId,
-          full_name: finalFullName,
-          email: cachedUser?.email || dbUser?.email || apiData?.email || 'atharv@gmail.com',
-          avatar_url: finalAvatarUrl,
-          institution_id: cachedUser?.institution_id || dbUser?.institution_id || apiData?.institution_id || 'inst-mit-adt',
-          institution_name: apiData?.institution_name || 'MIT ADT University (Pune)',
-          verification_status: 'verified',
-          bio: finalBio,
-          total_earnings: apiData?.total_earnings || 1240,
-          available_balance: apiData?.available_balance || 890,
-          learners_helped: apiData?.learners_helped || 142,
-          average_rating: apiData?.average_rating || 5.0,
-          helpful_percentage: apiData?.helpful_percentage || 100
-        };
-
-        setPeer(mergedPeer);
-
-        // Explanations list
-        if (apiData?.explanations && apiData.explanations.length > 0) {
-          setExplanations(apiData.explanations);
+        let query = supabase.from('profiles').select('*');
+        if (isValidUUID(cleanId)) {
+          query = query.eq('id', cleanId);
+        } else if (cleanId.includes('@')) {
+          query = query.eq('email', cleanId.toLowerCase());
         } else {
-          setExplanations([
-            {
-              id: 'cnt-dbms-norm-video',
-              title: 'Database Normalization (1NF, 2NF, 3NF & BCNF) Step-by-Step',
-              description: 'Comprehensive 10-minute video walkthrough breaking down normalization anomalies, functional dependencies, and loss-less decomposition.',
-              content_type: 'video',
-              owner_id: mergedPeer.user_id,
-              owner_name: mergedPeer.full_name,
-              owner_avatar: mergedPeer.avatar_url,
-              institution_id: 'inst-mit-adt',
-              institution_name: 'MIT ADT University (Pune)',
-              subject_name: 'Database Management Systems',
-              year: 3,
-              semester: 5,
-              duration_seconds: 520,
-              price: 20,
-              is_free: false,
-              moderation_status: 'published',
-              views_count: 342,
-              purchases_count: 84,
-              average_rating: 4.9,
-              created_at: new Date().toISOString()
-            },
-            {
-              id: 'cnt-cyber-security-notes',
-              title: 'Buffer Overflow Exploits & Prevention Reference Guide',
-              description: 'Detailed reference walkthrough & C code examples demonstrating stack frame mechanics and memory safety mitigations.',
-              content_type: 'pdf_explanation',
-              owner_id: mergedPeer.user_id,
-              owner_name: mergedPeer.full_name,
-              owner_avatar: mergedPeer.avatar_url,
-              institution_id: 'inst-mit-adt',
-              institution_name: 'MIT ADT University (Pune)',
-              subject_name: 'Cyber Security & Forensics',
-              year: 3,
-              semester: 5,
-              duration_seconds: 400,
-              price: 0,
-              is_free: true,
-              moderation_status: 'published',
-              views_count: 512,
-              purchases_count: 190,
-              average_rating: 5.0,
-              created_at: new Date().toISOString()
-            }
-          ]);
+          query = query.eq('email', 'atharv@gmail.com');
         }
 
-      } catch (err) {
-        console.error('Peer detail load error:', err);
-      } finally {
-        setLoading(false);
+        const { data } = await query.maybeSingle();
+        if (data) dbUser = data;
+      } catch (e) {
+        console.warn('Direct DB query notice:', e);
+      }
+
+      // 3. Try REST API as secondary source with quick fallback
+      let apiData: any = null;
+      try {
+        apiData = await Promise.race([
+          getPeerDetails(peerId),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 800))
+        ]);
+      } catch (e) {
+        console.warn('API getPeerDetails notice:', e);
+      }
+
+      // Combine profile: cachedUser & dbUser take absolute precedence
+      const finalFullName = cachedUser?.full_name || dbUser?.full_name || apiData?.full_name || defaultAtharvProfile.full_name;
+      const finalAvatarUrl = cachedUser?.avatar_url || dbUser?.avatar_url || apiData?.avatar_url || defaultAtharvProfile.avatar_url;
+      const finalBio = cachedUser?.bio || dbUser?.bio || apiData?.bio || defaultAtharvProfile.bio;
+
+      const mergedPeer = {
+        id: `peer_${dbUser?.id || cachedUser?.id || cleanId}`,
+        user_id: dbUser?.id || cachedUser?.id || cleanId,
+        full_name: finalFullName,
+        email: cachedUser?.email || dbUser?.email || apiData?.email || defaultAtharvProfile.email,
+        avatar_url: finalAvatarUrl,
+        institution_id: cachedUser?.institution_id || dbUser?.institution_id || apiData?.institution_id || defaultAtharvProfile.institution_id,
+        institution_name: apiData?.institution_name || defaultAtharvProfile.institution_name,
+        verification_status: 'verified',
+        bio: finalBio,
+        total_earnings: apiData?.total_earnings || defaultAtharvProfile.total_earnings,
+        available_balance: apiData?.available_balance || defaultAtharvProfile.available_balance,
+        learners_helped: apiData?.learners_helped || defaultAtharvProfile.learners_helped,
+        average_rating: apiData?.average_rating || defaultAtharvProfile.average_rating,
+        helpful_percentage: apiData?.helpful_percentage || defaultAtharvProfile.helpful_percentage
+      };
+
+      setPeer(mergedPeer);
+
+      // Fetch explanations
+      try {
+        const allContent = await getContentList({});
+        const peerItems = allContent.filter((c: any) => c.owner_id === mergedPeer.user_id || c.owner_name === mergedPeer.full_name);
+        setExplanations(peerItems.length > 0 ? peerItems : (apiData?.explanations || defaultAtharvExplanations(mergedPeer)));
+      } catch (cErr) {
+        setExplanations(apiData?.explanations || defaultAtharvExplanations(mergedPeer));
       }
     }
 
     loadPeerProfileFromDB();
   }, [peerId]);
 
-  if (loading || !peer) {
+  const defaultAtharvExplanations = (mergedPeer: any) => [
+    {
+      id: 'cnt-dbms-norm-video',
+      title: 'Database Normalization (1NF, 2NF, 3NF & BCNF) Step-by-Step',
+      description: 'Comprehensive 10-minute video walkthrough breaking down normalization anomalies, functional dependencies, and loss-less decomposition.',
+      content_type: 'video',
+      owner_id: mergedPeer.user_id,
+      owner_name: mergedPeer.full_name,
+      owner_avatar: mergedPeer.avatar_url,
+      institution_id: 'inst-mit-adt',
+      institution_name: 'MIT ADT University (Pune)',
+      subject_name: 'Database Management Systems',
+      year: 3,
+      semester: 5,
+      duration_seconds: 520,
+      price: 20,
+      is_free: false,
+      moderation_status: 'published',
+      views_count: 342,
+      purchases_count: 84,
+      average_rating: 4.9,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'cnt-cyber-security-notes',
+      title: 'Buffer Overflow Exploits & Prevention Reference Guide',
+      description: 'Detailed reference walkthrough & C code examples demonstrating stack frame mechanics and memory safety mitigations.',
+      content_type: 'pdf_explanation',
+      owner_id: mergedPeer.user_id,
+      owner_name: mergedPeer.full_name,
+      owner_avatar: mergedPeer.avatar_url,
+      institution_id: 'inst-[#6d28d9]',
+      institution_name: 'MIT ADT University (Pune)',
+      subject_name: 'Cyber Security & Forensics',
+      year: 3,
+      semester: 5,
+      duration_seconds: 400,
+      price: 0,
+      is_free: true,
+      moderation_status: 'published',
+      views_count: 512,
+      purchases_count: 190,
+      average_rating: 5.0,
+      created_at: new Date().toISOString()
+    }
+  ];
+
+  if (loading) {
     return (
       <div className="page-container py-20 text-center text-[#6d28d9] font-bold text-sm">
         <p className="animate-pulse">Loading peer profile from database...</p>
@@ -180,7 +193,7 @@ export const PeerDetailPage: React.FC = () => {
     );
   }
 
-  const activePeer = peer;
+  const activePeer = peer || defaultAtharvProfile;
   const isOwner = currentUser.id === activePeer.user_id;
 
   const handlePayoutRequest = async (e: React.FormEvent) => {
@@ -230,7 +243,7 @@ export const PeerDetailPage: React.FC = () => {
         await createTopicRequest({
           student_id: currentUser.id,
           requested_peer_id: activePeer.user_id,
-          institution_id: activePeer.institution_id || 'inst-mit-adt',
+          institution_id: activePeer.institution_id || 'inst-[#6d28d9]',
           subject_name: reqSubject,
           title: reqTitle,
           description: reqDescription,
@@ -418,7 +431,7 @@ export const PeerDetailPage: React.FC = () => {
 
       {/* Owner Financial Earnings Ledger & Payout Card */}
       {isOwner && (
-        <div className="violet-panel bg-white space-y-4 border-l-4 border-l-emerald-600">
+        <div className="violet-panel bg-[#f8f6ff] space-y-4 border-l-4 border-l-emerald-600">
           <div className="flex items-center gap-3 border-b border-purple-200 pb-4">
             <Wallet className="w-6 h-6 text-emerald-700" />
             <div>
@@ -428,18 +441,18 @@ export const PeerDetailPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-[#f8f6ff] p-4 rounded-xl border border-purple-200">
+            <div className="bg-white p-4 rounded-xl border border-purple-200">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Lifetime Earnings</span>
               <p className="text-2xl font-black text-emerald-700">₹{activePeer.total_earnings || 0}</p>
             </div>
 
-            <div className="bg-[#f8f6ff] p-4 rounded-xl border border-purple-200">
+            <div className="bg-white p-4 rounded-xl border border-purple-200">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Available Balance</span>
               <p className="text-2xl font-black text-[#2e1065]">₹{activePeer.available_balance || 0}</p>
             </div>
           </div>
 
-          <form onSubmit={handlePayoutRequest} className="bg-[#f8f6ff] p-4 rounded-xl border border-purple-200 space-y-3">
+          <form onSubmit={handlePayoutRequest} className="bg-white p-4 rounded-xl border border-purple-200 space-y-3">
             <h3 className="font-bold text-[#2e1065] text-sm">Request Payout (Min ₹250 Threshold)</h3>
             <div className="flex items-center gap-3">
               <div className="relative flex-1">
@@ -449,7 +462,7 @@ export const PeerDetailPage: React.FC = () => {
                   min="250"
                   value={payoutAmount}
                   onChange={(e) => setPayoutAmount(e.target.value)}
-                  className="w-full pl-7 pr-4 py-2 bg-white border border-purple-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:border-[#6d28d9]"
+                  className="w-full pl-7 pr-4 py-2 bg-[#f8f6ff] border border-purple-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:border-[#6d28d9]"
                 />
               </div>
               <button type="submit" className="btn-violet-primary py-2 px-4 text-xs font-bold">
