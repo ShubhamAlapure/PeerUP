@@ -126,6 +126,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
+    // Check if user is in `peer_profiles` table
+    try {
+      const { data: peerData } = await supabase
+        .from('peer_profiles')
+        .select('id')
+        .or(`user_id.eq.${userId},institution_email.eq.${cleanEmail}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (peerData) {
+        if (loadedProfile) {
+          loadedProfile.role = 'peer';
+          loadedProfile.verification_status = 'verified';
+        }
+      }
+    } catch (e) {
+      // Ignore
+    }
+
     if (loadedProfile) {
       setCurrentUser(loadedProfile);
       setLoading(false);
@@ -190,6 +209,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       await supabase.from('profiles').upsert([newProfile], { onConflict: 'id' });
+      if (role === 'peer') {
+        await supabase.from('peer_profiles').upsert([{ user_id: userId, institution_email: cleanEmail, bio: 'Campus Peer Educator' }]);
+      }
     } catch (dbErr) {
       console.warn('Profile DB insert warning:', dbErr);
     }
@@ -221,7 +243,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 2. Fetch registered user profile
     const fetchedProfile = await fetchUserProfile(activeUserId, cleanEmail);
 
-    // 3. Strict Role Validation: Reject Student credentials on Peer login and vice versa!
+    // 3. Strict Role Validation
     if (requiredRole) {
       if (requiredRole === 'peer' && fetchedProfile.role !== 'peer') {
         throw new Error('This account is registered as a Student Learner. Please switch to the Student Learner tab to log in.');
@@ -268,6 +290,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const dbPayload: any = {
         full_name: updated.full_name,
         avatar_url: updated.avatar_url,
+        role: updated.role,
+        verification_status: updated.verification_status,
         year: Number(updated.year),
         semester: Number(updated.semester),
         bio: updated.bio,
@@ -279,16 +303,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
-        const { error: supaErr } = await supabase
+        await supabase
           .from('profiles')
           .update(dbPayload)
           .eq('email', cleanEmail);
-
-        if (supaErr) {
-          console.error('Supabase DB profile update error:', supaErr.message);
-        } else {
-          console.log('Successfully updated profile in Supabase DB for:', cleanEmail);
-        }
       } catch (e) {
         console.error('Profile update catch error:', e);
       }
