@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getInstitutions } from '../services/api';
 import type { Institution } from '../types';
@@ -8,6 +8,7 @@ import { Building, CheckCircle2, ChevronRight, ArrowLeft, GraduationCap, ShieldC
 export const OnboardingPage: React.FC = () => {
   const { updateProfileData } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [step, setStep] = useState(1);
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -24,6 +25,13 @@ export const OnboardingPage: React.FC = () => {
   const [idCardUrl, setIdCardUrl] = useState<string>('https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=300&q=80');
 
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('role') === 'peer') {
+      setIsPeer(true);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     async function loadInstitutions() {
@@ -75,7 +83,7 @@ export const OnboardingPage: React.FC = () => {
                   {step === 1 && 'Select Your Institution'}
                   {step === 2 && 'Select Department & Program'}
                   {step === 3 && 'Academic Year & Semester'}
-                  {step === 4 && 'Become a Peer Educator'}
+                  {step === 4 && (isPeer ? 'Peer Educator Verification Setup' : 'Become a Peer Educator')}
                 </h1>
               </div>
             </div>
@@ -234,7 +242,7 @@ export const OnboardingPage: React.FC = () => {
                     <GraduationCap className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="font-black text-base text-[#2e1065]">Become a Verified Peer Tutor</h3>
+                    <h3 className="font-black text-base text-[#2e1065]">Become a Verified Peer Educator</h3>
                     <p className="text-xs text-slate-600 font-medium">Earn money sharing video explanations & assignment solutions</p>
                   </div>
                 </div>
