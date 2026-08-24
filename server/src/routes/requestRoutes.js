@@ -1,5 +1,6 @@
 import express from 'express';
 import { seedRequests, seedProfiles, seedInstitutions, seedSubjects, seedTopics } from '../db/seedData.js';
+import { supabase } from '../db/supabase.js';
 
 const router = express.Router();
 let requestStore = [...seedRequests];
@@ -8,10 +9,24 @@ let requestStore = [...seedRequests];
  * @route GET /api/requests
  * @desc Get all topic explanation requests
  */
-router.get('/requests', (req, res) => {
-  const { institution_id, subject_id, status } = req.query;
+router.get('/requests', async (req, res) => {
+  const { institution_id, subject_id, status, requested_peer_id } = req.query;
 
-  let results = requestStore.map(reqItem => {
+  let supaResults = [];
+  try {
+    const { data } = await supabase
+      .from('requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (data) supaResults = data;
+  } catch (err) {
+    console.warn('Supabase DB requests query notice:', err);
+  }
+
+  const combined = [...supaResults, ...requestStore];
+
+  let results = combined.map(reqItem => {
     const student = seedProfiles.find(u => u.id === reqItem.student_id) || {};
     const inst = seedInstitutions.find(i => i.id === reqItem.institution_id) || {};
     const subj = seedSubjects.find(s => s.id === reqItem.subject_id) || {};
@@ -19,11 +34,11 @@ router.get('/requests', (req, res) => {
 
     return {
       ...reqItem,
-      student_name: student.full_name,
-      student_avatar: student.avatar_url,
-      institution_name: inst.name,
-      subject_name: subj.name,
-      topic_name: top.name
+      student_name: reqItem.student_name || student.full_name || 'Student Learner',
+      student_avatar: reqItem.student_avatar || student.avatar_url,
+      institution_name: inst.name || 'MIT ADT University',
+      subject_name: reqItem.subject_name || subj.name || 'General Computer Science',
+      topic_name: reqItem.title || top.name
     };
   });
 
@@ -36,48 +51,67 @@ router.get('/requests', (req, res) => {
   if (status) {
     results = results.filter(r => r.status === status);
   }
+  if (requested_peer_id) {
+    results = results.filter(r => r.requested_peer_id === requested_peer_id || !r.requested_peer_id);
+  }
 
   res.json(results);
 });
 
 /**
  * @route POST /api/requests/create
- * @desc Student creates a topic request
+ * @desc Student creates a topic request sent to a peer
  */
-router.post('/requests/create', (req, res) => {
+router.post('/requests/create', async (req, res) => {
   const {
     student_id,
-    institution_id,
-    subject_id,
-    topic_id,
+    requested_peer_id,
+    institution_id = 'inst-mit-adt',
+    subject_name,
     title,
     description,
-    preferred_type = 'video',
-    budget = 20,
-    deadline
+    budget = 50
   } = req.body;
 
-  if (!student_id || !institution_id || !subject_id || !title || !description) {
-    return res.status(400).json({ error: 'Required fields missing: student_id, institution_id, subject_id, title, description.' });
+  if (!student_id || !title || !description) {
+    return res.status(400).json({ error: 'Required fields missing: student_id, title, description.' });
   }
 
   const newRequest = {
     id: `req_${Date.now()}`,
     student_id,
+    requested_peer_id,
     institution_id,
-    subject_id,
-    topic_id: topic_id || seedTopics[0].id,
+    subject_name: subject_name || 'General Academic Request',
     title,
     description,
-    preferred_type,
     budget: Number(budget),
-    deadline: deadline || new Date(Date.now() + 7 * 86400000).toISOString(),
-    status: 'open',
+    status: 'pending',
     created_at: new Date().toISOString()
   };
 
+  try {
+    await supabase.from('requests').insert([{
+      student_id,
+      requested_peer_id,
+      institution_id: isValidUUID(institution_id) ? institution_id : null,
+      subject_name: subject_name || 'General Academic Request',
+      title,
+      description,
+      offered_bounty: Number(budget),
+      status: 'pending'
+    }]);
+  } catch (err) {
+    console.warn('Supabase request insert notice:', err.message);
+  }
+
   requestStore.unshift(newRequest);
-  res.status(201).json({ message: 'Explanation request submitted successfully.', request: newRequest });
+  res.status(201).json({ message: 'Topic request submitted successfully.', request: newRequest });
 });
+
+const isValidUUID = (str) => {
+  if (!str) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+};
 
 export default router;

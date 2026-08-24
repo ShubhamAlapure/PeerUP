@@ -1,18 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getPeerDetails, requestPayout } from '../services/api';
+import { getPeerDetails, requestPayout, createTopicRequest } from '../services/api';
 import { ContentCard } from '../components/ContentCard';
-import { Star, CheckCircle2, Users, ThumbsUp, Wallet, ArrowUpRight, AlertCircle, CheckCircle } from 'lucide-react';
+import { Star, CheckCircle2, Users, ThumbsUp, Wallet, ArrowUpRight, AlertCircle, CheckCircle, Send, MessageSquarePlus } from 'lucide-react';
 
 export const PeerDetailPage: React.FC = () => {
   const { peerId } = useParams<{ peerId: string }>();
-  const { currentUser } = useAuth();
+  const { currentUser, session } = useAuth();
+  const navigate = useNavigate();
+
   const [peer, setPeer] = useState<any>(null);
   const [payoutAmount, setPayoutAmount] = useState<string>('250');
   const [payoutMsg, setPayoutMsg] = useState<string | null>(null);
   const [payoutErr, setPayoutErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Topic Request Form State
+  const [reqTitle, setReqTitle] = useState('');
+  const [reqSubject, setReqSubject] = useState('');
+  const [reqDescription, setReqDescription] = useState('');
+  const [reqBounty, setReqBounty] = useState('50');
+  const [submittingReq, setSubmittingReq] = useState(false);
+  const [reqSuccessMsg, setReqSuccessMsg] = useState<string | null>(null);
+  const [reqErrorMsg, setReqErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadPeer() {
@@ -52,6 +63,43 @@ export const PeerDetailPage: React.FC = () => {
     }
   };
 
+  const handleSendTopicRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session) {
+      navigate('/login');
+      return;
+    }
+    if (!reqTitle || !reqSubject || !reqDescription) {
+      setReqErrorMsg('Please fill out the topic title, subject name, and detailed description.');
+      return;
+    }
+
+    try {
+      setSubmittingReq(true);
+      setReqErrorMsg(null);
+      setReqSuccessMsg(null);
+
+      await createTopicRequest({
+        student_id: currentUser.id,
+        requested_peer_id: peer.user_id,
+        institution_id: peer.institution_id || 'inst-mit-adt',
+        subject_name: reqSubject,
+        title: reqTitle,
+        description: reqDescription,
+        budget: Number(reqBounty) || 50
+      });
+
+      setReqSuccessMsg(`✓ Topic request sent directly to ${peer.full_name}! They will receive your request on their Peer Educator portal.`);
+      setReqTitle('');
+      setReqSubject('');
+      setReqDescription('');
+    } catch (err: any) {
+      setReqErrorMsg(err.message || 'Failed to send topic request.');
+    } finally {
+      setSubmittingReq(false);
+    }
+  };
+
   return (
     <div className="page-container py-10 space-y-10">
       {/* Peer Profile Card Header */}
@@ -73,7 +121,7 @@ export const PeerDetailPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl sm:text-3xl font-black text-[#2e1065]">{peer.full_name}</h1>
                 <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-0.5 rounded-full">
-                  ✓ Verified Peer
+                  ✓ Verified Peer Tutor
                 </span>
               </div>
               <p className="text-sm font-bold text-[#6d28d9]">{peer.institution_name}</p>
@@ -114,6 +162,97 @@ export const PeerDetailPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Direct Topic Request Section for Students */}
+      {!isOwner && (
+        <div className="violet-panel bg-white p-8 border-2 border-purple-200 shadow-lg space-y-6">
+          <div className="flex items-center gap-3 border-b border-purple-200 pb-4">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#6d28d9] to-purple-500 text-white flex items-center justify-center font-bold shadow-md">
+              <MessageSquarePlus className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-[#2e1065]">Request Explanation Topic from {peer.full_name}</h2>
+              <p className="text-xs text-slate-600 font-medium">Send a custom topic or assignment query directly to this peer tutor</p>
+            </div>
+          </div>
+
+          {reqSuccessMsg && (
+            <div className="p-4 bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-extrabold rounded-2xl flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+              <span>{reqSuccessMsg}</span>
+            </div>
+          )}
+
+          {reqErrorMsg && (
+            <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs font-bold rounded-2xl flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <span>{reqErrorMsg}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSendTopicRequest} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-extrabold text-[#2e1065] mb-1">Topic / Question Title</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Please explain Buffer Overflow Exploits & Prevention in C"
+                  value={reqTitle}
+                  onChange={(e) => setReqTitle(e.target.value)}
+                  className="w-full p-3 bg-[#f8f6ff] border border-purple-200 rounded-xl text-slate-900 text-xs font-bold focus:outline-none focus:border-[#6d28d9]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-[#2e1065] mb-1">Subject / Department</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Cyber Security & Forensics"
+                  value={reqSubject}
+                  onChange={(e) => setReqSubject(e.target.value)}
+                  className="w-full p-3 bg-[#f8f6ff] border border-purple-200 rounded-xl text-slate-900 text-xs font-bold focus:outline-none focus:border-[#6d28d9]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-extrabold text-[#2e1065] mb-1">Detailed Description & Notes for Tutor</label>
+              <textarea
+                rows={3}
+                placeholder="Describe specific questions, assignment requirements, or concepts you want explained in the video walkthrough..."
+                value={reqDescription}
+                onChange={(e) => setReqDescription(e.target.value)}
+                className="w-full p-3 bg-[#f8f6ff] border border-purple-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-[#6d28d9]"
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-extrabold text-[#2e1065]">Offered Bounty:</span>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-slate-500 font-bold text-xs">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={reqBounty}
+                    onChange={(e) => setReqBounty(e.target.value)}
+                    className="w-24 pl-7 pr-3 py-1.5 bg-[#f8f6ff] border border-purple-200 rounded-xl text-slate-900 text-xs font-bold focus:outline-none focus:border-[#6d28d9]"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={submittingReq}
+                className="btn-violet-primary py-2.5 px-6 text-xs font-extrabold shadow-md w-full sm:w-auto"
+              >
+                <Send className="w-4 h-4" />
+                <span>{submittingReq ? 'Sending Request...' : `Send Topic Request to ${peer.full_name}`}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Owner Financial Earnings Ledger & Payout Card */}
       {isOwner && (
         <div className="violet-panel bg-white space-y-4 border-l-4 border-l-emerald-600">
@@ -137,7 +276,6 @@ export const PeerDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Payout Form */}
           <form onSubmit={handlePayoutRequest} className="bg-[#f8f6ff] p-4 rounded-xl border border-purple-200 space-y-3">
             <h3 className="font-bold text-[#2e1065] text-sm">Request Payout (Min ₹250 Threshold)</h3>
             <div className="flex items-center gap-3">
