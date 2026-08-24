@@ -11,28 +11,9 @@ const isValidUUID = (str) => {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 };
 
-const atharvPeerObj = {
-  id: 'peer_89b7789d-087d-4517-a0eb-534f8a28c0ac',
-  user_id: '89b7789d-087d-4517-a0eb-534f8a28c0ac',
-  full_name: 'Atharv Sadewad',
-  user_name: 'Atharv Sadewad',
-  email: 'atharv@gmail.com',
-  avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-  institution_name: 'MIT ADT University (Pune)',
-  institution_id: 'inst-mit-adt',
-  verification_status: 'verified',
-  bio: 'Cyber Security & Forensics Senior Peer Tutor',
-  total_earnings: 1240,
-  available_balance: 890,
-  learners_helped: 142,
-  average_rating: 5.0,
-  helpful_percentage: 100,
-  published_count: 3
-};
-
 /**
  * @route GET /api/peers
- * @desc Get list of peers combining real registered peers and seed demo peers
+ * @desc Get list of peers combining real Supabase registered peers and seed demo peers
  */
 router.get('/peers', async (req, res) => {
   const { institution_id, min_rating } = req.query;
@@ -48,16 +29,15 @@ router.get('/peers', async (req, res) => {
       realPeers = supaProfiles.map(p => ({
         id: `peer_${p.id}`,
         user_id: p.id,
-        full_name: p.full_name || 'Atharv Sadewad',
-        user_name: p.full_name || 'Atharv Sadewad',
+        full_name: p.full_name,
+        user_name: p.full_name,
         email: p.email,
         avatar_url: p.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
         institution_name: 'MIT ADT University (Pune)',
         institution_id: p.institution_id || 'inst-mit-adt',
-        verification_status: 'verified',
+        verification_status: p.verification_status || 'verified',
         bio: p.bio || 'Verified Senior Peer Educator on PeerUP Marketplace.',
-        total_earnings: 1240,
-        available_balance: 890,
+        total_earnings: 0,
         learners_helped: 142,
         average_rating: 5.0,
         helpful_percentage: 100,
@@ -66,11 +46,6 @@ router.get('/peers', async (req, res) => {
     }
   } catch (err) {
     console.warn('Supabase DB peer query notice:', err);
-  }
-
-  const hasAtharv = realPeers.some(p => p.email?.toLowerCase() === 'atharv@gmail.com');
-  if (!hasAtharv) {
-    realPeers.unshift(atharvPeerObj);
   }
 
   const seedResult = peerProfilesList.map(peer => {
@@ -105,17 +80,10 @@ router.get('/peers', async (req, res) => {
 
 /**
  * @route GET /api/peers/:id
- * @desc Get peer profile details by peerId or userId
+ * @desc Get peer profile details dynamically by peerId or userId straight from Supabase DB
  */
 router.get('/peers/:id', async (req, res) => {
   const peerIdOrUserId = req.params.id;
-
-  if (peerIdOrUserId.includes('atharv') || peerIdOrUserId.includes('89b7789d')) {
-    return res.json({
-      ...atharvPeerObj,
-      explanations: seedContent
-    });
-  }
 
   try {
     const cleanId = peerIdOrUserId.startsWith('peer_') ? peerIdOrUserId.replace('peer_', '') : peerIdOrUserId;
@@ -133,15 +101,15 @@ router.get('/peers/:id', async (req, res) => {
       return res.json({
         id: `peer_${supaProfile.id}`,
         user_id: supaProfile.id,
-        full_name: supaProfile.full_name || 'Atharv Sadewad',
+        full_name: supaProfile.full_name,
         email: supaProfile.email,
         avatar_url: supaProfile.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
         institution_id: supaProfile.institution_id || 'inst-mit-adt',
         institution_name: 'MIT ADT University (Pune)',
-        verification_status: 'verified',
+        verification_status: supaProfile.verification_status || 'verified',
         bio: supaProfile.bio || 'Verified Senior Peer Educator on PeerUP Marketplace.',
-        total_earnings: 1240,
-        available_balance: 890,
+        total_earnings: 0,
+        available_balance: 0,
         learners_helped: 142,
         average_rating: 5.0,
         helpful_percentage: 100,
@@ -154,10 +122,7 @@ router.get('/peers/:id', async (req, res) => {
 
   const peer = peerProfilesList.find(p => p.id === peerIdOrUserId || p.user_id === peerIdOrUserId);
   if (!peer) {
-    return res.json({
-      ...atharvPeerObj,
-      explanations: seedContent
-    });
+    return res.status(404).json({ error: 'Peer profile not found.' });
   }
 
   const user = seedProfiles.find(u => u.id === peer.user_id) || {};

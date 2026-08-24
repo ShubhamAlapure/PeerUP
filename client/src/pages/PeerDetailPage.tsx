@@ -1,75 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getPeerDetails, requestPayout, createTopicRequest } from '../services/api';
+import { getPeerDetails, requestPayout, createTopicRequest, getContentList } from '../services/api';
 import { supabase } from '../services/supabaseClient';
 import { ContentCard } from '../components/ContentCard';
 import { Star, CheckCircle2, Users, ThumbsUp, Wallet, ArrowUpRight, AlertCircle, CheckCircle, Send, MessageSquarePlus, BookOpen } from 'lucide-react';
-
-const fallbackAtharv = {
-  id: 'peer_89b7789d-087d-4517-a0eb-534f8a28c0ac',
-  user_id: '89b7789d-087d-4517-a0eb-534f8a28c0ac',
-  full_name: 'Atharv Sadewad',
-  email: 'atharv@gmail.com',
-  avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-  institution_id: 'inst-mit-adt',
-  institution_name: 'MIT ADT University (Pune)',
-  verification_status: 'verified',
-  bio: 'Cyber Security & Forensics Senior Peer Tutor. Specializing in DBMS, Network Security, and Systems Architecture.',
-  total_earnings: 1240,
-  available_balance: 890,
-  learners_helped: 142,
-  average_rating: 5.0,
-  helpful_percentage: 100,
-  explanations: [
-    {
-      id: 'cnt-dbms-norm-video',
-      title: 'Database Normalization (1NF, 2NF, 3NF & BCNF) Step-by-Step',
-      description: 'Comprehensive 10-minute video walkthrough breaking down normalization anomalies, functional dependencies, and loss-less decomposition with 5 solved university exam problems.',
-      content_type: 'video',
-      owner_id: '89b7789d-087d-4517-a0eb-534f8a28c0ac',
-      owner_name: 'Atharv Sadewad',
-      owner_avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-      institution_id: 'inst-mit-adt',
-      institution_name: 'MIT ADT University (Pune)',
-      subject_id: 'subj-dbms',
-      subject_name: 'Database Management Systems',
-      year: 3,
-      semester: 5,
-      duration_seconds: 520,
-      price: 20,
-      is_free: false,
-      moderation_status: 'published',
-      views_count: 342,
-      purchases_count: 84,
-      average_rating: 4.9,
-      created_at: new Date().toISOString()
-    },
-    {
-      id: 'cnt-cyber-security-notes',
-      title: 'Buffer Overflow Exploits & Prevention Reference Guide',
-      description: 'Detailed PDF reference walkthrough & C code examples demonstrating stack frame mechanics and memory safety mitigations.',
-      content_type: 'pdf_explanation',
-      owner_id: '89b7789d-087d-4517-a0eb-534f8a28c0ac',
-      owner_name: 'Atharv Sadewad',
-      owner_avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-      institution_id: 'inst-mit-adt',
-      institution_name: 'MIT ADT University (Pune)',
-      subject_id: 'subj-cyber',
-      subject_name: 'Cyber Security & Forensics',
-      year: 3,
-      semester: 5,
-      duration_seconds: 400,
-      price: 0,
-      is_free: true,
-      moderation_status: 'published',
-      views_count: 512,
-      purchases_count: 190,
-      average_rating: 5.0,
-      created_at: new Date().toISOString()
-    }
-  ]
-};
 
 export const PeerDetailPage: React.FC = () => {
   const { peerId } = useParams<{ peerId: string }>();
@@ -77,6 +12,7 @@ export const PeerDetailPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [peer, setPeer] = useState<any>(null);
+  const [explanations, setExplanations] = useState<any[]>([]);
   const [payoutAmount, setPayoutAmount] = useState<string>('250');
   const [payoutMsg, setPayoutMsg] = useState<string | null>(null);
   const [payoutErr, setPayoutErr] = useState<string | null>(null);
@@ -93,46 +29,89 @@ export const PeerDetailPage: React.FC = () => {
   const [reqErrorMsg, setReqErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadPeer() {
-      if (!peerId) {
-        setPeer(fallbackAtharv);
-        setLoading(false);
-        return;
-      }
+    async function loadPeerProfileFromDB() {
+      if (!peerId) return;
       try {
-        const data = await getPeerDetails(peerId);
-        if (data && data.full_name) {
-          setPeer(data);
-        } else {
-          setPeer(fallbackAtharv);
+        setLoading(true);
+        const cleanId = peerId.startsWith('peer_') ? peerId.replace('peer_', '') : peerId;
+
+        // 1. Query Supabase DB profiles table for latest real peer data
+        let dbUser: any = null;
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .or(`id.eq.${cleanId},email.eq.${cleanId.toLowerCase()}`)
+            .maybeSingle();
+
+          if (data) dbUser = data;
+        } catch (e) {
+          console.warn('Direct DB fetch notice:', e);
         }
+
+        // 2. Try REST API as secondary source
+        let apiData: any = null;
+        try {
+          apiData = await getPeerDetails(peerId);
+        } catch (e) {
+          console.warn('API fetch notice:', e);
+        }
+
+        // Combine: DB data takes precedence for full_name, avatar_url, bio, year, semester!
+        const mergedPeer = {
+          id: dbUser ? `peer_${dbUser.id}` : (apiData?.id || peerId),
+          user_id: dbUser ? dbUser.id : (apiData?.user_id || cleanId),
+          full_name: dbUser?.full_name || apiData?.full_name || apiData?.user_name || 'Campus Peer Tutor',
+          email: dbUser?.email || apiData?.email || '',
+          avatar_url: dbUser?.avatar_url || apiData?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+          institution_id: dbUser?.institution_id || apiData?.institution_id || 'inst-mit-adt',
+          institution_name: apiData?.institution_name || 'MIT ADT University (Pune)',
+          verification_status: dbUser?.verification_status || apiData?.verification_status || 'verified',
+          bio: dbUser?.bio || apiData?.bio || 'Verified Senior Peer Educator on PeerUP Marketplace.',
+          total_earnings: apiData?.total_earnings || 0,
+          available_balance: apiData?.available_balance || 0,
+          learners_helped: apiData?.learners_helped || 127,
+          average_rating: apiData?.average_rating || 5.0,
+          helpful_percentage: apiData?.helpful_percentage || 100
+        };
+
+        setPeer(mergedPeer);
+
+        // Fetch explanations
+        try {
+          const allContent = await getContentList({});
+          const peerItems = allContent.filter((c: any) => c.owner_id === mergedPeer.user_id || c.owner_name === mergedPeer.full_name);
+          setExplanations(peerItems.length > 0 ? peerItems : (apiData?.explanations || []));
+        } catch (cErr) {
+          setExplanations(apiData?.explanations || []);
+        }
+
       } catch (err) {
-        console.warn('Peer detail load fallback notice:', err);
-        setPeer(fallbackAtharv);
+        console.error('Peer detail load error:', err);
       } finally {
         setLoading(false);
       }
     }
-    loadPeer();
+
+    loadPeerProfileFromDB();
   }, [peerId]);
 
-  if (loading) {
+  if (loading || !peer) {
     return (
       <div className="page-container py-20 text-center text-[#6d28d9] font-bold text-sm">
-        <p className="animate-pulse">Loading peer profile & explanations...</p>
+        <p className="animate-pulse">Loading peer profile from database...</p>
       </div>
     );
   }
 
-  const activePeer = peer || fallbackAtharv;
-  const isOwner = currentUser.id === activePeer.user_id;
+  const isOwner = currentUser.id === peer.user_id;
 
   const handlePayoutRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     setPayoutMsg(null);
     setPayoutErr(null);
     try {
-      const res = await requestPayout(activePeer.id, Number(payoutAmount));
+      const res = await requestPayout(peer.id, Number(payoutAmount));
       setPayoutMsg(res.message);
       setPeer((prev: any) => ({ ...prev, available_balance: res.remainingBalance }));
     } catch (err: any) {
@@ -156,26 +135,11 @@ export const PeerDetailPage: React.FC = () => {
       setReqErrorMsg(null);
       setReqSuccessMsg(null);
 
-      // 1. Attempt API request
-      try {
-        await createTopicRequest({
-          student_id: currentUser.id,
-          requested_peer_id: activePeer.user_id,
-          institution_id: activePeer.institution_id || 'inst-mit-adt',
-          subject_name: reqSubject,
-          title: reqTitle,
-          description: reqDescription,
-          budget: Number(reqBounty) || 50
-        });
-      } catch (apiErr) {
-        console.warn('API topic request fallback notice:', apiErr);
-      }
-
-      // 2. Direct Supabase DB insert
+      // 1. Direct Supabase DB insert
       try {
         await supabase.from('requests').insert([{
           student_id: currentUser.id.includes('-') ? currentUser.id : null,
-          requested_peer_id: activePeer.user_id?.includes('-') ? activePeer.user_id : null,
+          requested_peer_id: peer.user_id?.includes('-') ? peer.user_id : null,
           subject_name: reqSubject,
           title: reqTitle,
           description: reqDescription,
@@ -186,7 +150,22 @@ export const PeerDetailPage: React.FC = () => {
         console.warn('Direct Supabase request insert notice:', dbErr);
       }
 
-      setReqSuccessMsg(`✓ Topic request sent immediately! ${activePeer.full_name} will receive your request in seconds on their Peer Educator portal.`);
+      // 2. REST API fallback
+      try {
+        await createTopicRequest({
+          student_id: currentUser.id,
+          requested_peer_id: peer.user_id,
+          institution_id: peer.institution_id || 'inst-mit-adt',
+          subject_name: reqSubject,
+          title: reqTitle,
+          description: reqDescription,
+          budget: Number(reqBounty) || 50
+        });
+      } catch (apiErr) {
+        console.warn('API topic request notice:', apiErr);
+      }
+
+      setReqSuccessMsg(`✓ Topic request sent immediately! ${peer.full_name} will receive your request in seconds on their Peer Educator portal.`);
       setReqTitle('');
       setReqSubject('');
       setReqDescription('');
@@ -205,8 +184,8 @@ export const PeerDetailPage: React.FC = () => {
           <div className="flex items-center gap-6">
             <div className="relative">
               <img
-                src={activePeer.avatar_url}
-                alt={activePeer.full_name}
+                src={peer.avatar_url}
+                alt={peer.full_name}
                 className="w-24 h-24 rounded-full object-cover border-4 border-[#6d28d9] shadow-md"
               />
               <div className="absolute -bottom-1 -right-1 bg-emerald-600 text-white rounded-full p-1 shadow-md">
@@ -216,13 +195,13 @@ export const PeerDetailPage: React.FC = () => {
 
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl sm:text-3xl font-black text-[#2e1065]">{activePeer.full_name}</h1>
+                <h1 className="text-2xl sm:text-3xl font-black text-[#2e1065]">{peer.full_name}</h1>
                 <span className="bg-emerald-100 text-emerald-800 text-xs font-extrabold px-3 py-1 rounded-full border border-emerald-300">
                   ✓ Verified Peer Tutor
                 </span>
               </div>
-              <p className="text-sm font-bold text-[#6d28d9]">{activePeer.institution_name}</p>
-              <p className="text-xs text-slate-600 max-w-xl font-medium">{activePeer.bio}</p>
+              <p className="text-sm font-bold text-[#6d28d9]">{peer.institution_name}</p>
+              <p className="text-xs text-slate-600 max-w-xl font-medium">{peer.bio}</p>
             </div>
           </div>
 
@@ -232,7 +211,7 @@ export const PeerDetailPage: React.FC = () => {
               <div className="px-2">
                 <div className="flex items-center justify-center gap-1 text-amber-600 font-black text-lg">
                   <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
-                  <span>{activePeer.average_rating || 5.0}</span>
+                  <span>{peer.average_rating || 5.0}</span>
                 </div>
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Rating</span>
               </div>
@@ -242,7 +221,7 @@ export const PeerDetailPage: React.FC = () => {
               <div className="px-2">
                 <div className="flex items-center justify-center gap-1 text-[#2e1065] font-black text-lg">
                   <Users className="w-4 h-4 text-purple-600" />
-                  <span>{activePeer.learners_helped || 142}</span>
+                  <span>{peer.learners_helped || 142}</span>
                 </div>
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Learners</span>
               </div>
@@ -252,7 +231,7 @@ export const PeerDetailPage: React.FC = () => {
               <div className="px-2">
                 <div className="flex items-center justify-center gap-1 text-emerald-700 font-black text-lg">
                   <ThumbsUp className="w-4 h-4 text-emerald-600" />
-                  <span>{activePeer.helpful_percentage || 100}%</span>
+                  <span>{peer.helpful_percentage || 100}%</span>
                 </div>
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Helpful</span>
               </div>
@@ -264,7 +243,7 @@ export const PeerDetailPage: React.FC = () => {
                 className="btn-violet-primary py-2.5 px-5 text-xs font-black shadow-md flex items-center gap-2 w-full justify-center"
               >
                 <MessageSquarePlus className="w-4 h-4" />
-                <span>{showReqForm ? 'Close Request Form' : `⚡ Request Topic from ${activePeer.full_name.split(' ')[0]}`}</span>
+                <span>{showReqForm ? 'Close Request Form' : `⚡ Request Topic from ${peer.full_name.split(' ')[0]}`}</span>
               </button>
             )}
           </div>
@@ -279,7 +258,7 @@ export const PeerDetailPage: React.FC = () => {
               <MessageSquarePlus className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-[#2e1065]">Request Topic Explanation from {activePeer.full_name}</h2>
+              <h2 className="text-xl font-black text-[#2e1065]">Request Topic Explanation from {peer.full_name}</h2>
               <p className="text-xs text-slate-600 font-medium">Explain your topic requirement below — request is sent immediately to this peer tutor in seconds!</p>
             </div>
           </div>
@@ -355,7 +334,7 @@ export const PeerDetailPage: React.FC = () => {
                 className="btn-violet-primary py-3 px-8 text-xs font-extrabold shadow-md w-full sm:w-auto"
               >
                 <Send className="w-4 h-4" />
-                <span>{submittingReq ? 'Sending Request...' : `Send Topic Request to ${activePeer.full_name}`}</span>
+                <span>{submittingReq ? 'Sending Request...' : `Send Topic Request to ${peer.full_name}`}</span>
               </button>
             </div>
           </form>
@@ -376,12 +355,12 @@ export const PeerDetailPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-[#f8f6ff] p-4 rounded-xl border border-purple-200">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Lifetime Earnings</span>
-              <p className="text-2xl font-black text-emerald-700">₹{activePeer.total_earnings || 0}</p>
+              <p className="text-2xl font-black text-emerald-700">₹{peer.total_earnings || 0}</p>
             </div>
 
             <div className="bg-[#f8f6ff] p-4 rounded-xl border border-purple-200">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Available Balance</span>
-              <p className="text-2xl font-black text-[#2e1065]">₹{activePeer.available_balance || 0}</p>
+              <p className="text-2xl font-black text-[#2e1065]">₹{peer.available_balance || 0}</p>
             </div>
           </div>
 
@@ -426,17 +405,23 @@ export const PeerDetailPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-[#6d28d9]" />
             <h2 className="text-2xl font-black text-[#2e1065]">
-              {activePeer.full_name}'s Contributions & Explanations ({activePeer.explanations?.length || 0})
+              {peer.full_name}'s Contributions & Explanations ({explanations.length})
             </h2>
           </div>
           <span className="text-xs font-bold text-slate-500">Includes free walkthroughs & unlockable premium explanations</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {activePeer.explanations?.map((item: any) => (
-            <ContentCard key={item.id} content={item} />
-          ))}
-        </div>
+        {explanations.length === 0 ? (
+          <div className="p-8 bg-purple-50 rounded-2xl text-center text-slate-600 font-medium text-xs border border-purple-200">
+            No published explanations yet from this peer tutor. Use the <strong>Request Topic</strong> form above to ask for a custom video explanation!
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {explanations.map((item: any) => (
+              <ContentCard key={item.id} content={item} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
