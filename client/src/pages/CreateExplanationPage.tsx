@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { createExplanation } from '../services/api';
+import { createExplanation, getInstitutions } from '../services/api';
 import { MediaStudioRecorder } from '../components/MediaStudioRecorder';
 import { AcademicIntegrityNotice } from '../components/AcademicIntegrityNotice';
-import type { ContentType } from '../types';
-import { PlusCircle, Video, Mic, FileText, FileSpreadsheet, CheckCircle, AlertCircle } from 'lucide-react';
+import type { ContentType, Institution } from '../types';
+import { PlusCircle, Video, Mic, FileText, FileSpreadsheet, CheckCircle, AlertCircle, Building } from 'lucide-react';
 
 export const CreateExplanationPage: React.FC = () => {
   const { currentUser } = useAuth();
@@ -19,9 +19,29 @@ export const CreateExplanationPage: React.FC = () => {
   const [markdownText, setMarkdownText] = useState('');
   const [durationSeconds, setDurationSeconds] = useState<number>(300);
 
+  // Academic Mapping Fields (University, Specialization, Year, Semester, Subject)
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const [selectedInstId, setSelectedInstId] = useState<string>('inst-mit-adt');
+  const [specialization, setSpecialization] = useState<string>('Computer Science & Engineering (CSE)');
+  const [academicYear, setAcademicYear] = useState<number>(2);
+  const [semester, setSemester] = useState<number>(3);
+  const [subjectName, setSubjectName] = useState<string>('Database Management Systems (DBMS)');
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    async function loadInsts() {
+      try {
+        const insts = await getInstitutions();
+        setInstitutions(insts);
+      } catch (err) {
+        console.error('Error fetching institutions:', err);
+      }
+    }
+    loadInsts();
+  }, []);
 
   const handleMediaCaptured = (_blob: Blob, duration: number) => {
     setDurationSeconds(duration > 0 ? duration : 300);
@@ -40,9 +60,12 @@ export const CreateExplanationPage: React.FC = () => {
 
       const payload = {
         owner_id: currentUser.id,
-        institution_id: currentUser.institution_id || 'inst-mit-adt',
+        institution_id: selectedInstId,
         subject_id: 'subj-dbms',
         topic_id: 'top-norm',
+        year: academicYear,
+        semester: semester,
+        program_name: specialization,
         title,
         description,
         content_type: contentType,
@@ -55,7 +78,7 @@ export const CreateExplanationPage: React.FC = () => {
       await createExplanation(payload);
       setSuccess(true);
       setTimeout(() => {
-        navigate('/dashboard');
+        navigate('/repository');
       }, 1500);
     } catch (err: any) {
       setError(err.message || 'Failed to publish explanation.');
@@ -72,7 +95,7 @@ export const CreateExplanationPage: React.FC = () => {
           <span>Peer Explanation Studio</span>
         </div>
         <h1 className="text-3xl font-black text-[#2e1065]">Create & Publish Explanation</h1>
-        <p className="text-sm text-slate-600 font-medium">Share your knowledge with peers and earn money for your explanations.</p>
+        <p className="text-sm text-slate-600 font-medium">Categorize your explanation by University, Specialization, Year & Semester for instant student discovery.</p>
       </div>
 
       <AcademicIntegrityNotice />
@@ -81,11 +104,11 @@ export const CreateExplanationPage: React.FC = () => {
         <div className="violet-panel text-center py-12 space-y-4">
           <CheckCircle className="w-16 h-16 text-emerald-600 mx-auto" />
           <h2 className="text-2xl font-black text-[#2e1065]">Explanation Published!</h2>
-          <p className="text-sm text-slate-600 font-medium">Your explanation is now live in the PeerUP academic catalog.</p>
+          <p className="text-sm text-slate-600 font-medium">Your explanation is now live and filterable by students under your selected University, Program & Semester.</p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="violet-panel space-y-6">
-          {/* Select Type */}
+        <form onSubmit={handleSubmit} className="violet-panel space-y-8">
+          {/* Step 1: Format */}
           <div className="space-y-3">
             <label className="block font-extrabold text-[#2e1065] text-sm">Step 1: Choose Explanation Format</label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -135,18 +158,104 @@ export const CreateExplanationPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Step 2: Academic Mapping (University, Specialization, Year, Sem, Subject) */}
+          <div className="space-y-4 pt-4 border-t border-purple-200">
+            <div className="flex items-center gap-2">
+              <Building className="w-5 h-5 text-[#6d28d9]" />
+              <label className="font-extrabold text-[#2e1065] text-sm">Step 2: University & Academic Mapping</label>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-extrabold text-[#2e1065] mb-1">Target University / Institution</label>
+                <select
+                  value={selectedInstId}
+                  onChange={(e) => setSelectedInstId(e.target.value)}
+                  className="w-full p-3 bg-[#f8f6ff] border border-purple-200 rounded-xl text-slate-900 text-xs font-bold focus:outline-none focus:border-[#6d28d9]"
+                >
+                  {institutions.map(inst => (
+                    <option key={inst.id} value={inst.id}>{inst.name} ({inst.city})</option>
+                  ))}
+                  <option value="inst-mit-adt">MIT ADT University (Pune)</option>
+                  <option value="inst-symbiosis">Symbiosis International (Pune)</option>
+                  <option value="inst-mit-wpu">MIT World Peace University (Pune)</option>
+                  <option value="inst-coep">COEP Technological University (Pune)</option>
+                  <option value="inst-cummins">Cummins College of Engineering (Pune)</option>
+                  <option value="inst-dypu">D Y Patil International University (Pune)</option>
+                  <option value="inst-jspm">JSPM Institutes (Pune)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-[#2e1065] mb-1">Specialization / Program</label>
+                <select
+                  value={specialization}
+                  onChange={(e) => setSpecialization(e.target.value)}
+                  className="w-full p-3 bg-[#f8f6ff] border border-purple-200 rounded-xl text-slate-900 text-xs font-bold focus:outline-none focus:border-[#6d28d9]"
+                >
+                  <option value="Computer Science & Engineering (CSE)">Computer Science & Engineering (CSE)</option>
+                  <option value="Artificial Intelligence & Data Science">Artificial Intelligence & Data Science (AI & DS)</option>
+                  <option value="Information Technology (IT)">Information Technology (IT)</option>
+                  <option value="Electronics & Telecom (E&TC)">Electronics & Telecom (E&TC)</option>
+                  <option value="Mechanical Engineering">Mechanical Engineering</option>
+                  <option value="User Experience & Design">User Experience & Design (B.Des)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-extrabold text-[#2e1065] mb-1">Academic Year</label>
+                <select
+                  value={academicYear}
+                  onChange={(e) => setAcademicYear(Number(e.target.value))}
+                  className="w-full p-3 bg-[#f8f6ff] border border-purple-200 rounded-xl text-slate-900 text-xs font-bold focus:outline-none focus:border-[#6d28d9]"
+                >
+                  <option value={1}>1st Year (First Year Engineering)</option>
+                  <option value={2}>2nd Year (Second Year / SE)</option>
+                  <option value={3}>3rd Year (Third Year / TE)</option>
+                  <option value={4}>4th Year (Final Year / BE)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-[#2e1065] mb-1">Semester</label>
+                <select
+                  value={semester}
+                  onChange={(e) => setSemester(Number(e.target.value))}
+                  className="w-full p-3 bg-[#f8f6ff] border border-purple-200 rounded-xl text-slate-900 text-xs font-bold focus:outline-none focus:border-[#6d28d9]"
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
+                    <option key={s} value={s}>Semester {s}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-[#2e1065] mb-1">Subject Name</label>
+                <input
+                  type="text"
+                  value={subjectName}
+                  onChange={(e) => setSubjectName(e.target.value)}
+                  placeholder="e.g. Database Management Systems"
+                  className="w-full p-3 bg-[#f8f6ff] border border-purple-200 rounded-xl text-slate-900 text-xs font-bold focus:outline-none focus:border-[#6d28d9]"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Embedded Recording Studio for Video/Audio */}
           {(contentType === 'video' || contentType === 'audio') && (
-            <div className="space-y-2">
-              <label className="block font-extrabold text-[#2e1065] text-sm">Step 2: Record Media Studio</label>
+            <div className="space-y-2 pt-4 border-t border-purple-200">
+              <label className="block font-extrabold text-[#2e1065] text-sm">Step 3: Media Recording Studio</label>
               <MediaStudioRecorder mode={contentType} onMediaCaptured={handleMediaCaptured} />
             </div>
           )}
 
           {/* Text editor for Text explanation */}
           {contentType === 'text' && (
-            <div className="space-y-2">
-              <label className="block font-extrabold text-[#2e1065] text-sm">Step 2: Rich Text Body (Markdown Supported)</label>
+            <div className="space-y-2 pt-4 border-t border-purple-200">
+              <label className="block font-extrabold text-[#2e1065] text-sm">Step 3: Rich Text Body (Markdown Supported)</label>
               <textarea
                 rows={6}
                 value={markdownText}
@@ -157,10 +266,10 @@ export const CreateExplanationPage: React.FC = () => {
             </div>
           )}
 
-          {/* Metadata */}
+          {/* Explanation Details & Pricing */}
           <div className="space-y-4 pt-4 border-t border-purple-200">
             <div>
-              <label className="block font-bold text-[#2e1065] text-sm mb-1">Title</label>
+              <label className="block font-bold text-[#2e1065] text-sm mb-1">Explanation Title</label>
               <input
                 type="text"
                 value={title}
@@ -171,12 +280,12 @@ export const CreateExplanationPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block font-bold text-[#2e1065] text-sm mb-1">Description</label>
+              <label className="block font-bold text-[#2e1065] text-sm mb-1">Description & Key Takeaways</label>
               <textarea
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Summary of what students will learn..."
+                placeholder="Summary of what students will learn from this explanation..."
                 className="w-full p-3 bg-[#f8f6ff] border border-purple-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:border-[#6d28d9]"
               />
             </div>
@@ -191,7 +300,7 @@ export const CreateExplanationPage: React.FC = () => {
                   onChange={(e) => setPrice(Number(e.target.value))}
                   className="w-full p-3 bg-[#f8f6ff] border border-purple-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:border-[#6d28d9]"
                 />
-                <span className="text-[10px] text-slate-500 font-bold">Set ₹0 for Free access</span>
+                <span className="text-[10px] text-slate-500 font-bold">Set ₹0 for Free reference access</span>
               </div>
 
               <div>
@@ -222,7 +331,7 @@ export const CreateExplanationPage: React.FC = () => {
             className="w-full btn-violet-primary justify-center py-3 text-sm font-extrabold"
           >
             <PlusCircle className="w-4 h-4" />
-            <span>{loading ? 'Publishing...' : 'Publish Explanation'}</span>
+            <span>{loading ? 'Publishing Explanation...' : 'Publish Explanation'}</span>
           </button>
         </form>
       )}

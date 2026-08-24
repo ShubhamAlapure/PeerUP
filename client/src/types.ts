@@ -62,6 +62,9 @@ export interface ContentItem {
   subject_name?: string;
   topic_id: string;
   topic_name?: string;
+  year?: number;
+  semester?: number;
+  program_name?: string;
   title: string;
   description: string;
   content_type: ContentType;
