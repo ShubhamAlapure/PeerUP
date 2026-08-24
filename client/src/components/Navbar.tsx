@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { GraduationCap, Search, X, Sparkles, PlusCircle, LayoutDashboard, FolderKanban, Users, MessageSquarePlus, ShieldAlert } from 'lucide-react';
+import { GraduationCap, Search, X, Sparkles, PlusCircle, LayoutDashboard, FolderKanban, Users, MessageSquarePlus, ShieldAlert, LogOut } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
-  const { currentUser, switchRole } = useAuth();
+  const { currentUser, session, signOut, switchRole } = useAuth();
   const location = useLocation();
   const [showBanner, setShowBanner] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -144,25 +144,43 @@ export const Navbar: React.FC = () => {
             </button>
           </div>
 
-          <Link to="/create-explanation" className="btn-violet-primary text-xs py-2 px-3.5 hidden sm:inline-flex">
+          <Link to="/onboarding" className="btn-violet-primary text-xs py-2 px-3.5 hidden sm:inline-flex">
             <PlusCircle className="w-4 h-4" />
             <span>Become a Peer</span>
           </Link>
 
-          {/* User Profile Badge Pill */}
-          <div className="flex items-center gap-2 pl-2 border-l border-purple-200">
-            <div className="bg-[#f5f3ff] border border-purple-200 rounded-xl px-3 py-1.5 flex items-center gap-2">
-              <img
-                src={currentUser.avatar_url}
-                alt={currentUser.full_name}
-                className="w-7 h-7 rounded-full object-cover border border-[#6d28d9]"
-              />
-              <div className="text-left hidden xl:block">
-                <span className="block text-xs font-extrabold text-[#2e1065] leading-none">{currentUser.full_name}</span>
-                <span className="text-[10px] text-[#6d28d9] capitalize leading-none font-bold">{currentUser.role}</span>
-              </div>
+          {/* Auth Controls / User Profile */}
+          {session ? (
+            <div className="flex items-center gap-2 pl-2 border-l border-purple-200">
+              <Link to="/profile" className="bg-[#f5f3ff] hover:bg-purple-100 border border-purple-200 rounded-xl px-3 py-1.5 flex items-center gap-2 transition-all">
+                <img
+                  src={currentUser.avatar_url}
+                  alt={currentUser.full_name}
+                  className="w-7 h-7 rounded-full object-cover border border-[#6d28d9]"
+                />
+                <div className="text-left hidden xl:block">
+                  <span className="block text-xs font-extrabold text-[#2e1065] leading-none">{currentUser.full_name}</span>
+                  <span className="text-[10px] text-[#6d28d9] capitalize leading-none font-bold">{currentUser.role}</span>
+                </div>
+              </Link>
+              <button
+                onClick={() => signOut()}
+                className="p-2 text-slate-500 hover:text-red-600 rounded-xl hover:bg-red-50 transition-all"
+                title="Log out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center gap-2 pl-2 border-l border-purple-200">
+              <Link to="/login" className="btn-violet-secondary text-xs py-2 px-3">
+                Log In
+              </Link>
+              <Link to="/signup" className="btn-violet-primary text-xs py-2 px-3">
+                Sign Up
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </header>

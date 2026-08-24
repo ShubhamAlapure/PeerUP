@@ -1,5 +1,5 @@
 -- PeerUP PostgreSQL Database Schema
--- Supabase Compatible Script
+-- Supabase Compatible Script with Auth Triggers & RLS Policies
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     semester INTEGER,
     role VARCHAR(50) DEFAULT 'student' CHECK (role IN ('student', 'peer', 'admin')),
     verification_status VARCHAR(50) DEFAULT 'unverified' CHECK (verification_status IN ('pending', 'verified', 'rejected', 'suspended', 'unverified')),
+    is_onboarded BOOLEAN DEFAULT false,
     bio TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -261,17 +262,6 @@ CREATE TABLE IF NOT EXISTS public.reports (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS public.refunds (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    purchase_id UUID REFERENCES public.purchases(id) ON DELETE CASCADE,
-    payment_id UUID REFERENCES public.payments(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    reason TEXT NOT NULL,
-    status VARCHAR(50) DEFAULT 'requested' CHECK (status IN ('requested', 'approved', 'rejected', 'processed')),
-    admin_notes TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE IF NOT EXISTS public.notifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -308,7 +298,6 @@ CREATE INDEX IF NOT EXISTS idx_content_institution_subject ON public.content(ins
 CREATE INDEX IF NOT EXISTS idx_content_topic ON public.content(topic_id);
 CREATE INDEX IF NOT EXISTS idx_content_owner ON public.content(owner_id);
 CREATE INDEX IF NOT EXISTS idx_purchases_user_content ON public.purchases(user_id, content_id);
-CREATE INDEX IF NOT EXISTS idx_payments_order ON public.payments(razorpay_order_id);
 
 -- ROW LEVEL SECURITY POLICIES (RLS)
 ALTER TABLE public.institutions ENABLE ROW LEVEL SECURITY;
@@ -320,13 +309,55 @@ ALTER TABLE public.subjects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.topics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.content ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.peer_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.purchases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.requests ENABLE ROW LEVEL SECURITY;
 
--- Allow public read access to academic structures and published content
-CREATE POLICY "Public academic structures access" ON public.institutions FOR SELECT USING (true);
-CREATE POLICY "Public departments access" ON public.departments FOR SELECT USING (true);
-CREATE POLICY "Public programs access" ON public.programs FOR SELECT USING (true);
-CREATE POLICY "Public years access" ON public.years FOR SELECT USING (true);
-CREATE POLICY "Public semesters access" ON public.semesters FOR SELECT USING (true);
-CREATE POLICY "Public subjects access" ON public.subjects FOR SELECT USING (true);
-CREATE POLICY "Public topics access" ON public.topics FOR SELECT USING (true);
-CREATE POLICY "Published content public access" ON public.content FOR SELECT USING (moderation_status = 'published');
+-- RLS 1. Academic Structure Public Read
+CREATE POLICY "Public read institutions" ON public.institutions FOR SELECT USING (true);
+CREATE POLICY "Public read departments" ON public.departments FOR SELECT USING (true);
+CREATE POLICY "Public read programs" ON public.programs FOR SELECT USING (true);
+CREATE POLICY "Public read years" ON public.years FOR SELECT USING (true);
+CREATE POLICY "Public read semesters" ON public.semesters FOR SELECT USING (true);
+CREATE POLICY "Public read subjects" ON public.subjects FOR SELECT USING (true);
+CREATE POLICY "Public read topics" ON public.topics FOR SELECT USING (true);
+
+-- RLS 2. Profiles: Users can read public profiles, update only their own profile
+CREATE POLICY "Public read profiles" ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+
+-- RLS 3. Peer Profiles: Public read, owner update
+CREATE POLICY "Public read peer profiles" ON public.peer_profiles FOR SELECT USING (true);
+CREATE POLICY "Peers update own peer profile" ON public.peer_profiles FOR UPDATE USING (auth.uid() = user_id);
+
+-- RLS 4. Content: Published content public, owner modify
+CREATE POLICY "Public read published content" ON public.content FOR SELECT USING (moderation_status = 'published' OR auth.uid() = owner_id);
+CREATE POLICY "Peers insert own content" ON public.content FOR INSERT WITH CHECK (auth.uid() = owner_id);
+CREATE POLICY "Peers update own content" ON public.content FOR UPDATE USING (auth.uid() = owner_id);
+
+-- RLS 5. Purchases: Users read own purchases
+CREATE POLICY "Users read own purchases" ON public.purchases FOR SELECT USING (auth.uid() = user_id);
+
+-- AUTOMATED SUPABASE AUTH NEW USER TRIGGER
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, full_name, email, avatar_url, role, verification_status, is_onboarded)
+  VALUES (
+    new.id,
+    COALESCE(new.raw_user_meta_data->>'full_name', 'Student User'),
+    new.email,
+    COALESCE(new.raw_user_meta_data->>'avatar_url', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'),
+    'student',
+    'unverified',
+    false
+  );
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to automatically create profile on signup via Supabase auth
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();

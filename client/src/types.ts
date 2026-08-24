@@ -14,9 +14,13 @@ export interface Profile {
   semester?: number;
   role: UserRole;
   verification_status: VerificationStatus;
+  is_onboarded?: boolean;
   bio?: string;
   created_at?: string;
+  updated_at?: string;
 }
+
+export type UserProfile = Profile;
 
 export interface PeerProfile {
   id: string;
