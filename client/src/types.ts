@@ -90,6 +90,80 @@ export interface Subject {
   code: string;
 }
 
+export interface Topic {
+  id: string;
+  subject_id: string;
+  name: string;
+  description?: string;
+}
+
+export type ResourceType =
+  | 'assignment_reference'
+  | 'assignment_solution'
+  | 'notes'
+  | 'study_material'
+  | 'previous_question_paper'
+  | 'lab_practical_reference';
+
+export interface AcademicResource {
+  id: string;
+  title: string;
+  description: string;
+  institution_id: string;
+  department_id?: string;
+  program_id?: string;
+  year: number;
+  semester: number;
+  subject_id?: string;
+  topic_id?: string;
+  resource_type: ResourceType;
+  uploader_id: string;
+  file_path: string;
+  file_name: string;
+  file_size: number;
+  file_type: string;
+  thumbnail_url?: string;
+  tags?: string[];
+  is_free: boolean;
+  status: 'pending' | 'approved' | 'rejected' | 'removed';
+  views_count: number;
+  downloads_count: number;
+  created_at: string;
+  updated_at?: string;
+
+  // Hydrated fields
+  uploader_name?: string;
+  uploader_avatar?: string;
+  uploader_role?: UserRole;
+  uploader_verification_status?: VerificationStatus;
+  is_peer_verified?: boolean;
+  institution_name?: string;
+  department_name?: string;
+  program_name?: string;
+  subject_name?: string;
+  subject_code?: string;
+  topic_name?: string;
+  academic_integrity_notice?: string;
+}
+
+export interface ResourceReport {
+  id: string;
+  reporter_id: string;
+  resource_id: string;
+  reason:
+    | 'incorrect_information'
+    | 'copyright_concern'
+    | 'inappropriate_content'
+    | 'spam'
+    | 'academic_integrity'
+    | 'other';
+  description?: string;
+  status: 'pending' | 'resolved' | 'dismissed';
+  created_at: string;
+  resource?: AcademicResource;
+  reporter_name?: string;
+}
+
 export type ContentType = 'video' | 'audio' | 'text_assignment' | 'reference_solution' | 'pdf_explanation' | 'text';
 
 export interface ContentItem {
@@ -139,3 +213,4 @@ export interface TopicRequest {
   status: 'pending' | 'accepted' | 'completed' | 'cancelled';
   created_at: string;
 }
+

@@ -100,29 +100,53 @@ export const seedDepartments = [
 ];
 
 export const seedPrograms = [
-  { id: "prog-btech-cse", department_id: "dept-cse", name: "B.Tech Computer Science & Engineering", code: "B.Tech CSE", duration_years: 4 },
-  { id: "prog-btech-ece", department_id: "dept-ece", name: "B.Tech Electronics & Communication", code: "B.Tech ECE", duration_years: 4 },
-  { id: "prog-coep-btech", department_id: "dept-coep-comp", name: "B.Tech Computer Engineering", code: "B.Tech COMP", duration_years: 4 }
+  { id: "prog-btech-cse", department_id: "dept-cse", name: "B.Tech Computer Science & Engineering (CSE)", code: "CSE", duration_years: 4 },
+  { id: "prog-btech-aids", department_id: "dept-cse", name: "B.Tech Artificial Intelligence & Data Science (AI & DS)", code: "AI & DS", duration_years: 4 },
+  { id: "prog-btech-cyber", department_id: "dept-cse", name: "B.Tech Cyber Security & Digital Forensics", code: "Cyber", duration_years: 4 },
+  { id: "prog-btech-it", department_id: "dept-cse", name: "B.Tech Information Technology (IT)", code: "IT", duration_years: 4 },
+  { id: "prog-btech-entc", department_id: "dept-ece", name: "B.Tech Electronics & Telecommunication (E&TC)", code: "E&TC", duration_years: 4 },
+  { id: "prog-btech-robotics", department_id: "dept-ece", name: "B.Tech Robotics & Automation", code: "Robotics", duration_years: 4 },
+  { id: "prog-btech-mech", department_id: "dept-cse", name: "B.Tech Mechanical Engineering", code: "Mech", duration_years: 4 },
+  { id: "prog-btech-civil", department_id: "dept-cse", name: "B.Tech Civil & Environmental Engineering", code: "Civil", duration_years: 4 },
+  { id: "prog-btech-aero", department_id: "dept-cse", name: "B.Tech Aerospace Engineering", code: "Aero", duration_years: 4 },
+  { id: "prog-bdes", department_id: "dept-cse", name: "B.Des Design & User Experience", code: "B.Des", duration_years: 4 },
+  { id: "prog-bba-mba", department_id: "dept-cse", name: "BBA / MBA Business Administration", code: "BBA", duration_years: 3 },
+  { id: "prog-biotech", department_id: "dept-cse", name: "B.Tech Bioengineering & Biotechnology", code: "BioTech", duration_years: 4 }
 ];
 
 export const seedYears = [
-  { id: "yr-1", program_id: "prog-btech-cse", year_number: 1, label: "First Year (FE)" },
-  { id: "yr-2", program_id: "prog-btech-cse", year_number: 2, label: "Second Year (SE)" },
-  { id: "yr-3", program_id: "prog-btech-cse", year_number: 3, label: "Third Year (TE)" },
-  { id: "yr-4", program_id: "prog-btech-cse", year_number: 4, label: "Final Year (BE)" }
+  { id: "yr-1", program_id: "prog-btech-cse", year_number: 1, label: "First Year (FY / FE)" },
+  { id: "yr-2", program_id: "prog-btech-cse", year_number: 2, label: "Second Year (SY / SE)" },
+  { id: "yr-3", program_id: "prog-btech-cse", year_number: 3, label: "Third Year (TY / TE)" },
+  { id: "yr-4", program_id: "prog-btech-cse", year_number: 4, label: "Fourth Year (LY / BE)" }
 ];
 
 export const seedSemesters = [
+  { id: "sem-1", year_id: "yr-1", semester_number: 1, label: "Semester 1" },
+  { id: "sem-2", year_id: "yr-1", semester_number: 2, label: "Semester 2" },
   { id: "sem-3", year_id: "yr-2", semester_number: 3, label: "Semester 3" },
   { id: "sem-4", year_id: "yr-2", semester_number: 4, label: "Semester 4" },
-  { id: "sem-5", year_id: "yr-3", semester_number: 5, label: "Semester 5" }
+  { id: "sem-5", year_id: "yr-3", semester_number: 5, label: "Semester 5" },
+  { id: "sem-6", year_id: "yr-3", semester_number: 6, label: "Semester 6" },
+  { id: "sem-7", year_id: "yr-4", semester_number: 7, label: "Semester 7" },
+  { id: "sem-8", year_id: "yr-4", semester_number: 8, label: "Semester 8" }
 ];
 
 export const seedSubjects = [
-  { id: "subj-dbms", semester_id: "sem-3", name: "Database Management Systems", code: "CS301" },
-  { id: "subj-dsa", semester_id: "sem-3", name: "Data Structures & Algorithms", code: "CS302" },
-  { id: "subj-os", semester_id: "sem-4", name: "Operating Systems", code: "CS401" },
-  { id: "subj-cn", semester_id: "sem-5", name: "Computer Networks", code: "CS501" }
+  { id: "subj-ml", semester_id: "sem-5", name: "Machine Learning (CS501 / ML)", code: "CS501" },
+  { id: "subj-dbms", semester_id: "sem-3", name: "Database Management Systems (CS301 / DBMS)", code: "CS301" },
+  { id: "subj-dsa", semester_id: "sem-3", name: "Data Structures & Algorithms (CS201 / DSA)", code: "CS201" },
+  { id: "subj-cn", semester_id: "sem-5", name: "Computer Networks & Security (CS401 / CN)", code: "CS401" },
+  { id: "subj-os", semester_id: "sem-4", name: "Operating Systems (CS302 / OS)", code: "CS302" },
+  { id: "subj-cyber", semester_id: "sem-5", name: "Cyber Security & Cryptography (CS502)", code: "CS502" },
+  { id: "subj-ai", semester_id: "sem-5", name: "Artificial Intelligence & Deep Learning (AI501)", code: "AI501" },
+  { id: "subj-cloud", semester_id: "sem-6", name: "Cloud Computing & DevOps (CS601)", code: "CS601" },
+  { id: "subj-web", semester_id: "sem-3", name: "Web Technology & Full Stack MERN (CS303)", code: "CS303" },
+  { id: "subj-oops", semester_id: "sem-3", name: "Object Oriented Programming Java / C++ (CS202)", code: "CS202" },
+  { id: "subj-se", semester_id: "sem-4", name: "Software Engineering & Agile (CS402)", code: "CS402" },
+  { id: "subj-math", semester_id: "sem-1", name: "Discrete Mathematics & Logic (MA201)", code: "MA201" },
+  { id: "subj-daa", semester_id: "sem-4", name: "Design & Analysis of Algorithms (CS304)", code: "CS304" },
+  { id: "subj-toc", semester_id: "sem-4", name: "Theory of Computation (CS403 / TOC)", code: "CS403" }
 ];
 
 export const seedTopics = [
@@ -315,3 +339,149 @@ export const seedRequests = [
     created_at: "2026-08-22T11:00:00Z"
   }
 ];
+
+export const seedAcademicResources = [
+  {
+    id: "res-1",
+    title: "DBMS Assignment 3 — Normalization & Relational Schema Reference",
+    description: "Comprehensive previous year reference for 1NF, 2NF, 3NF decomposition, functional dependencies, and relational database schema design. Includes step-by-step solutions for practice.",
+    institution_id: "inst-mit-adt",
+    department_id: "dept-cse",
+    program_id: "prog-btech-cse",
+    year: 2,
+    semester: 3,
+    subject_id: "subj-dbms",
+    topic_id: "top-norm",
+    resource_type: "assignment_reference",
+    uploader_id: "usr-shubham",
+    file_path: "academic_resources/dbms_assign3_norm.pdf",
+    file_name: "DBMS_Assignment_3_Normalization.pdf",
+    file_size: 1450000,
+    file_type: "application/pdf",
+    thumbnail_url: "",
+    tags: ["DBMS", "Normalization", "3NF", "BCNF", "Relational Database"],
+    is_free: true,
+    status: "approved",
+    views_count: 1420,
+    downloads_count: 380,
+    created_at: "2026-08-10T14:15:00Z",
+    updated_at: "2026-08-10T14:15:00Z"
+  },
+  {
+    id: "res-2",
+    title: "Data Structures Lab Practical Reference — Binary Trees & Graphs in C++",
+    description: "Lab experiment solutions for Binary Search Tree traversal, Graph BFS/DFS, and Shortest Path Dijkstra implementations with commented C++ code.",
+    institution_id: "inst-mit-adt",
+    department_id: "dept-cse",
+    program_id: "prog-btech-cse",
+    year: 2,
+    semester: 3,
+    subject_id: "subj-dsa",
+    topic_id: "top-btree",
+    resource_type: "lab_practical_reference",
+    uploader_id: "usr-shubham",
+    file_path: "academic_resources/dsa_lab_trees_graphs.pdf",
+    file_name: "DSA_Lab_Practical_Reference.pdf",
+    file_size: 2100000,
+    file_type: "application/pdf",
+    thumbnail_url: "",
+    tags: ["DSA", "Trees", "Graphs", "C++", "Lab Reference"],
+    is_free: true,
+    status: "approved",
+    views_count: 980,
+    downloads_count: 245,
+    created_at: "2026-08-12T09:30:00Z",
+    updated_at: "2026-08-12T09:30:00Z"
+  },
+  {
+    id: "res-3",
+    title: "COEP Operating Systems Mid-Sem Previous Question Paper & Answer Key",
+    description: "Official COEP mid-semester examination question paper with detailed step-by-step answer key for Process Synchronization, CPU Scheduling algorithms, and Deadlocks.",
+    institution_id: "inst-coep",
+    department_id: "dept-coep-comp",
+    program_id: "prog-coep-btech",
+    year: 2,
+    semester: 4,
+    subject_id: "subj-os",
+    topic_id: "top-sync",
+    resource_type: "previous_question_paper",
+    uploader_id: "usr-ananya",
+    file_path: "academic_resources/coep_os_midsem_paper.pdf",
+    file_name: "COEP_OS_MidSem_2025_AnswerKey.pdf",
+    file_size: 1850000,
+    file_type: "application/pdf",
+    thumbnail_url: "",
+    tags: ["COEP", "OS", "Question Paper", "Sem 4", "Deadlocks"],
+    is_free: true,
+    status: "approved",
+    views_count: 2150,
+    downloads_count: 610,
+    created_at: "2026-08-15T11:00:00Z",
+    updated_at: "2026-08-15T11:00:00Z"
+  },
+  {
+    id: "res-4",
+    title: "Computer Networks Unit 3 Notes — TCP/IP Protocol Suite & Socket Programming",
+    description: "Handwritten and typed notes covering Subnetting, CIDR notation, TCP 3-way handshake, UDP headers, and C socket API programming.",
+    institution_id: "inst-mit-adt",
+    department_id: "dept-cse",
+    program_id: "prog-btech-cse",
+    year: 3,
+    semester: 5,
+    subject_id: "subj-cn",
+    topic_id: "top-sync",
+    resource_type: "notes",
+    uploader_id: "usr-shubham",
+    file_path: "academic_resources/cn_unit3_notes.pdf",
+    file_name: "CN_Unit3_TCPIP_Notes.pdf",
+    file_size: 3200000,
+    file_type: "application/pdf",
+    thumbnail_url: "",
+    tags: ["CN", "TCP/IP", "Subnetting", "Sockets", "Sem 5 Notes"],
+    is_free: true,
+    status: "approved",
+    views_count: 750,
+    downloads_count: 190,
+    created_at: "2026-08-20T16:20:00Z",
+    updated_at: "2026-08-20T16:20:00Z"
+  },
+  {
+    id: "res-5",
+    title: "SPPU Database Systems Practice Problem Set & Worked Solutions",
+    description: "Comprehensive study material with 50+ solved SQL queries, ER diagram conversions, relational algebra problems, and indexing strategy comparisons.",
+    institution_id: "inst-sppu",
+    department_id: "dept-cse",
+    program_id: "prog-btech-cse",
+    year: 2,
+    semester: 3,
+    subject_id: "subj-dbms",
+    topic_id: "top-sql-join",
+    resource_type: "study_material",
+    uploader_id: "usr-ananya",
+    file_path: "academic_resources/sppu_dbms_study_material.pdf",
+    file_name: "SPPU_DBMS_Practice_Solutions.pdf",
+    file_size: 2900000,
+    file_type: "application/pdf",
+    thumbnail_url: "",
+    tags: ["SPPU", "DBMS", "Study Material", "SQL Solutions"],
+    is_free: true,
+    status: "approved",
+    views_count: 1100,
+    downloads_count: 310,
+    created_at: "2026-08-22T10:00:00Z",
+    updated_at: "2026-08-22T10:00:00Z"
+  }
+];
+
+export const seedResourceReports = [
+  {
+    id: "rep-res-1",
+    reporter_id: "usr-rohit",
+    resource_id: "res-1",
+    reason: "academic_integrity",
+    description: "Resource contains direct assignment questions, verifying academic integrity notice.",
+    status: "pending",
+    created_at: "2026-08-25T14:00:00Z"
+  }
+];
+

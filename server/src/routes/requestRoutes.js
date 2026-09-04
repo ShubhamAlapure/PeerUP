@@ -1,6 +1,6 @@
 import express from 'express';
 import { seedRequests, seedProfiles, seedInstitutions, seedSubjects, seedTopics } from '../db/seedData.js';
-import { supabase } from '../db/supabase.js';
+import { supabase } from '../config.js';
 
 const router = express.Router();
 let requestStore = [...seedRequests];

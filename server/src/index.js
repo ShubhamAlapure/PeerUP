@@ -11,6 +11,7 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import ratingRoutes from './routes/ratingRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import resourceRoutes from './routes/resourceRoutes.js';
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use('/api', paymentRoutes);
 app.use('/api', ratingRoutes);
 app.use('/api', reportRoutes);
 app.use('/api', adminRoutes);
+app.use('/api', resourceRoutes);
 
 // Global Error Middleware
 app.use((err, req, res, next) => {
